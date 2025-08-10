@@ -26,6 +26,7 @@ export type Database = {
           page_name: string
           rsvp_config: Json | null
           template_id: string
+          wishes_enabled: boolean
         }
         Insert: {
           allow_rsvp_edit?: boolean | null
@@ -38,6 +39,7 @@ export type Database = {
           page_name: string
           rsvp_config?: Json | null
           template_id: string
+          wishes_enabled?: boolean
         }
         Update: {
           allow_rsvp_edit?: boolean | null
@@ -50,6 +52,7 @@ export type Database = {
           page_name?: string
           rsvp_config?: Json | null
           template_id?: string
+          wishes_enabled?: boolean
         }
         Relationships: [
           {

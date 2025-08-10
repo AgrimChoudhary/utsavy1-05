@@ -109,6 +109,36 @@ export const GuestManagement = ({ eventId }: GuestManagementProps) => {
     enabled: !!eventId,
   });
 
+  // Wish section visibility toggle (host-controlled)
+  const [wishesEnabled, setWishesEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (eventData && (eventData as any).wishes_enabled !== undefined) {
+      setWishesEnabled(Boolean((eventData as any).wishes_enabled));
+    }
+  }, [eventData]);
+
+  const handleToggleWishes = async (next: boolean) => {
+    setWishesEnabled(next);
+    const { error } = await supabase
+      .from('events')
+      .update({ wishes_enabled: next })
+      .eq('id', eventId);
+    if (error) {
+      setWishesEnabled(!next);
+      toast({
+        title: 'Update failed',
+        description: 'Could not update wish section visibility',
+        variant: 'destructive',
+      });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      toast({
+        title: next ? 'Wish section enabled' : 'Wish section disabled',
+      });
+    }
+  };
+
   // Fetch guests for this event
   const { data: guests, isLoading } = useQuery({
     queryKey: ['guests', eventId],
@@ -1170,9 +1200,21 @@ We look forward to celebrating with you!`;
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Guest Management</CardTitle>
-        </CardHeader>
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <CardTitle>Guest Management</CardTitle>
+        <div className="flex items-center gap-2">
+          <InstantTooltip content="Control whether guests can see the wish wall on their invitation">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="wishes-enabled"
+                checked={wishesEnabled}
+                onCheckedChange={(checked) => handleToggleWishes(checked === true)}
+              />
+              <Label htmlFor="wishes-enabled" className="text-sm">Show Wish Section</Label>
+            </div>
+          </InstantTooltip>
+        </div>
+      </CardHeader>
         <CardContent className="p-6 text-center">
           Loading...
         </CardContent>

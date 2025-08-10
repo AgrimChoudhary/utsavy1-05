@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import WishActionsMenu from "@/components/wishes/WishActionsMenu";
 
@@ -25,6 +26,16 @@ export function WishManagementList({ eventId }: { eventId: string }) {
     () => [...wishes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
     [wishes]
   );
+
+  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('all');
+  const approvedCount = useMemo(() => wishes.filter((w) => w.is_approved).length, [wishes]);
+  const pendingCount = useMemo(() => wishes.length - approvedCount, [wishes, approvedCount]);
+
+  const filteredWishes = useMemo(() => {
+    if (statusFilter === 'approved') return sortedWishes.filter((w) => w.is_approved);
+    if (statusFilter === 'pending') return sortedWishes.filter((w) => !w.is_approved);
+    return sortedWishes;
+  }, [sortedWishes, statusFilter]);
 
   const fetchWishes = async () => {
     try {
@@ -110,29 +121,44 @@ export function WishManagementList({ eventId }: { eventId: string }) {
         <CardTitle>Wishes</CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <Badge variant="outline">Total {wishes.length}</Badge>
+            <Badge variant="outline">Approved {approvedCount}</Badge>
+            <Badge variant="outline">Pending {pendingCount}</Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
+            <Button size="sm" variant={statusFilter === 'approved' ? 'default' : 'outline'} onClick={() => setStatusFilter('approved')}>Approved</Button>
+            <Button size="sm" variant={statusFilter === 'pending' ? 'default' : 'outline'} onClick={() => setStatusFilter('pending')}>Pending</Button>
+          </div>
+        </div>
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading wishes…</div>
         ) : sortedWishes.length === 0 ? (
           <div className="text-sm text-muted-foreground">No wishes yet.</div>
         ) : (
           <div className="divide-y">
-            {sortedWishes.map((wish) => (
+            {filteredWishes.map((wish) => (
               <div key={wish.id} className="flex items-start justify-between py-3 gap-4">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium truncate">{wish.guest_name}</span>
                     {wish.is_approved ? (
                       <Badge variant="secondary">Approved</Badge>
                     ) : (
                       <Badge variant="outline">Pending</Badge>
                     )}
+                    {wish.likes_count > 0 && (
+                      <Badge variant="outline">{wish.likes_count} likes</Badge>
+                    )}
+                    {wish.photo_url && (
+                      <Badge variant="outline">Photo</Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1 break-words whitespace-pre-wrap">
                     {wish.wish_text}
                   </p>
-                  {wish.photo_url && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">Photo attached</p>
-                  )}
                 </div>
 
                 <WishActionsMenu
