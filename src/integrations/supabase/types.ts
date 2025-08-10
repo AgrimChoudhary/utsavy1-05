@@ -302,6 +302,93 @@ export type Database = {
         }
         Relationships: []
       }
+      wish_likes: {
+        Row: {
+          created_at: string
+          guest_id: string
+          id: string
+          wish_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id: string
+          id?: string
+          wish_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_id?: string
+          id?: string
+          wish_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wish_likes_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wish_likes_wish_id_fkey"
+            columns: ["wish_id"]
+            isOneToOne: false
+            referencedRelation: "wishes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wishes: {
+        Row: {
+          created_at: string
+          event_id: string
+          guest_id: string | null
+          guest_name: string
+          id: string
+          is_approved: boolean
+          likes_count: number
+          photo_url: string | null
+          wish_text: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          guest_id?: string | null
+          guest_name: string
+          id?: string
+          is_approved?: boolean
+          likes_count?: number
+          photo_url?: string | null
+          wish_text: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          guest_id?: string | null
+          guest_name?: string
+          id?: string
+          is_approved?: boolean
+          likes_count?: number
+          photo_url?: string | null
+          wish_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishes_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
