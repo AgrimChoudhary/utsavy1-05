@@ -1200,21 +1200,9 @@ We look forward to celebrating with you!`;
   if (isLoading) {
     return (
       <Card>
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <CardTitle>Guest Management</CardTitle>
-        <div className="flex items-center gap-2">
-          <InstantTooltip content="Control whether guests can see the wish wall on their invitation">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="wishes-enabled"
-                checked={wishesEnabled}
-                onCheckedChange={(checked) => handleToggleWishes(checked === true)}
-              />
-              <Label htmlFor="wishes-enabled" className="text-sm">Show Wish Section</Label>
-            </div>
-          </InstantTooltip>
-        </div>
-      </CardHeader>
+        <CardHeader>
+          <CardTitle>Guest Management</CardTitle>
+        </CardHeader>
         <CardContent className="p-6 text-center">
           Loading...
         </CardContent>
@@ -1224,22 +1212,25 @@ We look forward to celebrating with you!`;
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <CardHeader>
         <CardTitle>Guest Management</CardTitle>
-        <div className="flex items-center gap-2">
-          <InstantTooltip content="Control whether guests can see the wish wall on their invitation">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="wishes-enabled"
-                checked={wishesEnabled}
-                onCheckedChange={(checked) => handleToggleWishes(checked === true)}
-              />
-              <Label htmlFor="wishes-enabled" className="text-sm">Show Wish Section</Label>
-            </div>
-          </InstantTooltip>
-        </div>
       </CardHeader>
       <CardContent>
+        {/* Wishes visibility section */}
+        <div className="flex items-center justify-between border rounded-md p-3 mb-4">
+          <h3 className="text-sm font-medium">Show Wishes Section</h3>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="wishes-enabled"
+              checked={wishesEnabled}
+              onCheckedChange={(checked) => handleToggleWishes(checked === true)}
+              aria-label="Toggle wishes section visibility"
+            />
+            <Label htmlFor="wishes-enabled" className="text-sm">
+              {wishesEnabled ? 'On' : 'Off'}
+            </Label>
+          </div>
+        </div>
         {isDetailedRSVP ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
