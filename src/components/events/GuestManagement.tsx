@@ -1224,8 +1224,20 @@ We look forward to celebrating with you!`;
 
   return (
     <Card className="w-full">
-      <CardHeader>
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <CardTitle>Guest Management</CardTitle>
+        <div className="flex items-center gap-2">
+          <InstantTooltip content="Control whether guests can see the wish wall on their invitation">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="wishes-enabled"
+                checked={wishesEnabled}
+                onCheckedChange={(checked) => handleToggleWishes(checked === true)}
+              />
+              <Label htmlFor="wishes-enabled" className="text-sm">Show Wish Section</Label>
+            </div>
+          </InstantTooltip>
+        </div>
       </CardHeader>
       <CardContent>
         {isDetailedRSVP ? (

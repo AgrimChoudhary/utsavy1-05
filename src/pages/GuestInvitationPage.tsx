@@ -17,6 +17,7 @@ interface EventData {
   rsvp_config?: any;
   customFields?: any[];
   allow_rsvp_edit?: boolean;
+  wishes_enabled?: boolean;
 }
 
 interface GuestData {
@@ -272,7 +273,8 @@ const GuestInvitationPage = () => {
             showAcceptButton: !guest.accepted,
             showSubmitButton: guest.accepted && !guest.rsvp_data,
             rsvpFields: event.customFields || [],
-            existingRsvpData: guest.rsvp_data
+            existingRsvpData: guest.rsvp_data,
+            wishesEnabled: Boolean((event as any).wishes_enabled)
           }
         };
         
@@ -625,7 +627,9 @@ const GuestInvitationPage = () => {
           return;
         }
         
-        const url = constructInvitationUrl(baseUrl, eventData, guestData, {});
+        const url = constructInvitationUrl(baseUrl, eventData, guestData, {
+          wishesEnabled: String(Boolean((eventData as any).wishes_enabled))
+        });
         console.log('Final constructed iframe URL:', url);
         console.log('URL includes eventId:', url.includes('eventId='));
         console.log('URL includes guestId:', url.includes('guestId='));
@@ -713,6 +717,7 @@ const GuestInvitationPage = () => {
           showEditButton: enhancedGuestStatus === 'submitted' && (event.allow_rsvp_edit || false),
           rsvpFields: event.customFields || [],
           existingRsvpData: guest.rsvp_data,
+          wishesEnabled: Boolean((event as any).wishes_enabled),
           
           // Event details for template rendering
           eventDetails: event.details,
