@@ -55,7 +55,7 @@ export function WishActionsMenu({
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuContent align="end" className="w-44 z-50">
         {!isApproved && (
           <DropdownMenuItem className="cursor-pointer" onClick={handleApprove}>
             <CheckCircle2 className="mr-2 h-4 w-4" />

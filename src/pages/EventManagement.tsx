@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GuestManagement } from '@/components/events/GuestManagement';
 import { TemplateFormDispatcher } from '@/components/events/TemplateFormDispatcher';
-
+import WishManagementList from '@/components/events/WishManagementList';
 
 import { ConnectionWarning } from '@/components/ui/connection-warning';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -385,6 +385,17 @@ const EventManagement = () => {
               <h2 className="text-xl font-semibold">Guest List</h2>
             </div>
             <GuestManagement eventId={eventId} />
+          </div>
+
+          {/* Wishes Management Section */}
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <MessageSquare className="h-5 w-5 mr-2" />
+              <h2 className="text-xl font-semibold">Wish Management</h2>
+            </div>
+            {/* Lightweight host-only panel with per-wish three-dot actions */}
+            {/* ... keep existing code (guest list and other sections) */}
+            <WishManagementList eventId={eventId} />
           </div>
         </div>
       </main>
