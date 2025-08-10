@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const EventManagement = () => {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ const EventManagement = () => {
   const [activeSetting, setActiveSetting] = useState<'rsvp' | 'message' | 'followup' | 'guest-events'>('rsvp');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDeadlineManager, setShowDeadlineManager] = useState(false);
+  const [isWishDialogOpen, setIsWishDialogOpen] = useState(false);
 
   // Get event statistics for new RSVP system
   const { stats: eventStats, refetch: refetchStats } = useSimpleEventStats(eventId);
@@ -301,7 +303,7 @@ const EventManagement = () => {
                     <span>Guest Event Access</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={scrollToWishManagement}
+                    onClick={() => { setIsWishDialogOpen(true); setIsDropdownOpen(false); }}
                     className="cursor-pointer"
                   >
                     <Heart className="mr-2 h-4 w-4" />
@@ -322,6 +324,19 @@ const EventManagement = () => {
           </div>
         </div>
       </header>
+
+      {/* Wish Management Dialog */}
+      <Dialog open={isWishDialogOpen} onOpenChange={setIsWishDialogOpen}>
+        <DialogContent aria-describedby="wish-dialog-description">
+          <DialogHeader>
+            <DialogTitle>Wish Management</DialogTitle>
+            <DialogDescription id="wish-dialog-description">
+              Review, approve, and delete guest wishes for this event.
+            </DialogDescription>
+          </DialogHeader>
+          <WishManagementList eventId={eventId} />
+        </DialogContent>
+      </Dialog>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
