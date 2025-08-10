@@ -416,16 +416,6 @@ const EventManagement = () => {
             <GuestManagement eventId={eventId} />
           </div>
 
-          {/* Wishes Management Section */}
-          <div id="wish-management" className="space-y-4">
-            <div className="flex items-center">
-              <MessageSquare className="h-5 w-5 mr-2" />
-              <h2 className="text-xl font-semibold">Wish Management</h2>
-            </div>
-            {/* Lightweight host-only panel with per-wish three-dot actions */}
-            {/* ... keep existing code (guest list and other sections) */}
-            <WishManagementList eventId={eventId} />
-          </div>
         </div>
       </main>
     </div>
