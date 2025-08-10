@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTemplateCache } from '@/hooks/useTemplateCache';
 import { useSimpleEventStats } from '@/hooks/useSimpleEventStats';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Users, Edit, Settings, MoreVertical, MessageSquare, UserCheck, MessageCircle, Calendar } from 'lucide-react';
+import { ArrowLeft, Users, Edit, Settings, MoreVertical, MessageSquare, UserCheck, MessageCircle, Calendar, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GuestManagement } from '@/components/events/GuestManagement';
@@ -153,6 +153,13 @@ const EventManagement = () => {
     }
   };
 
+  const scrollToWishManagement = () => {
+    setIsDropdownOpen(false);
+    const el = document.getElementById('wish-management');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
   if (loading || eventLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -259,7 +266,7 @@ const EventManagement = () => {
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 z-50">
                   <DropdownMenuItem 
                     onClick={() => openSettingsWithTab('rsvp')}
                     className="cursor-pointer"
@@ -292,6 +299,13 @@ const EventManagement = () => {
                   >
                     <Users className="mr-2 h-4 w-4" />
                     <span>Guest Event Access</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={scrollToWishManagement}
+                    className="cursor-pointer"
+                  >
+                    <Heart className="mr-2 h-4 w-4" />
+                    <span>Wish Management</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -388,7 +402,7 @@ const EventManagement = () => {
           </div>
 
           {/* Wishes Management Section */}
-          <div className="space-y-4">
+          <div id="wish-management" className="space-y-4">
             <div className="flex items-center">
               <MessageSquare className="h-5 w-5 mr-2" />
               <h2 className="text-xl font-semibold">Wish Management</h2>
