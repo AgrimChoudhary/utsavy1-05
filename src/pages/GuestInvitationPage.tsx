@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { EnhancedInvitationLoader } from '@/components/ui/enhanced-invitation-loader';
 import { constructInvitationUrl, getTemplateBaseUrl, getAllowedOrigins } from '@/utils/iframeMessaging';
 import { SimpleRSVPService } from '@/services/simpleRSVPService';
+import { WishMessageHandlerService } from '@/services/wishMessageHandler';
 
 interface EventData {
   id: string;
@@ -137,6 +138,10 @@ const GuestInvitationPage = () => {
   const handlePostMessage = async (messageEvent: MessageEvent) => {
     console.log('📥 Received postMessage from template:', messageEvent.data);
     console.log('📍 Message origin:', messageEvent.origin);
+    console.log('🔍 Message type:', messageEvent.data?.type);
+    console.log('🔍 Current eventId:', eventId);
+    console.log('🔍 Current guestId:', guestId);
+    console.log('🔍 Guest data:', guest);
     
     // 🔍 Comprehensive filter for non-template messages (browser extensions, ad-blockers, etc.)
     const messageData = messageEvent.data;
@@ -178,7 +183,16 @@ const GuestInvitationPage = () => {
       'GUEST_ACCEPTANCE',
       'GUEST_RSVP_UPDATE',
       'STATUS_UPDATE',
-      'INVITATION_VIEWED'
+      'INVITATION_VIEWED',
+      // Wish Management Messages
+      'REQUEST_INITIAL_WISHES_DATA',
+      'REQUEST_INITIAL_ADMIN_WISHES_DATA',
+      'SUBMIT_NEW_WISH',
+      'APPROVE_WISH',
+      'DELETE_WISH',
+      'TOGGLE_WISH_LIKE',
+      'REQUEST_WISHES_REFRESH',
+      'SUBMIT_WISH_REPLY'
     ];
     
     if (!validTemplateMessageTypes.includes(messageData.type)) {
@@ -194,10 +208,8 @@ const GuestInvitationPage = () => {
       return;
     }
 
-    // Use SimpleRSVPService to handle all postMessage events
+    // Route messages based on type - wish messages go to WishMessageHandlerService, RSVP messages go to SimpleRSVPService
     try {
-      console.log('🔄 Processing message with SimpleRSVPService...');
-      
       const eventId = event?.custom_event_id || event?.id;
       const guestId = guest?.custom_guest_id || guest?.id;
       
@@ -208,8 +220,91 @@ const GuestInvitationPage = () => {
       console.log('guestId for postMessage:', guestId);
       console.log('messageEvent.data:', messageEvent.data);
       
+      // Define wish message types
+      const wishMessageTypes = [
+        'REQUEST_INITIAL_WISHES_DATA',
+        'REQUEST_INITIAL_ADMIN_WISHES_DATA',
+        'SUBMIT_NEW_WISH',
+        'APPROVE_WISH',
+        'DELETE_WISH',
+        'TOGGLE_WISH_LIKE',
+        'REQUEST_WISHES_REFRESH',
+        'SUBMIT_WISH_REPLY'
+      ];
+      
+      // Check if this is a wish-related message
+      if (wishMessageTypes.includes(messageEvent.data.type)) {
+        console.log('💕 PLATFORM: Processing wish message with WishMessageHandlerService...');
+        console.log('💕 PLATFORM: Message type detected:', messageEvent.data.type);
+        console.log('💕 PLATFORM: Wish message types array:', wishMessageTypes);
+        console.log('💕 PLATFORM: Full message data:', messageEvent.data);
+        
+        if (!eventId) {
+          console.error('🚨 PLATFORM: Missing eventId for wish message processing!');
+          console.error('🚨 PLATFORM: eventId:', eventId);
+          throw new Error(`Missing eventId for wish message - eventId: ${eventId}`);
+        }
+        
+        console.log('🔍 PLATFORM: Event ID for wish handling:', eventId);
+        console.log('🔍 PLATFORM: Event ID type:', typeof eventId);
+        
+        // Register WishMessageHandlerService if not already registered
+        const iframe = document.querySelector('iframe[data-template-iframe="true"]') as HTMLIFrameElement;
+        console.log('🖼️ PLATFORM: Iframe found:', !!iframe);
+        console.log('🖼️ PLATFORM: Iframe src:', iframe?.src);
+        console.log('🔗 PLATFORM: Currently registered handlers:', WishMessageHandlerService.getRegisteredHandlers());
+        console.log('🔍 PLATFORM: Is eventId already registered?', WishMessageHandlerService.getRegisteredHandlers().includes(eventId));
+        
+        if (iframe && !WishMessageHandlerService.getRegisteredHandlers().includes(eventId)) {
+          console.log('📝 PLATFORM: Registering new wish message handler for event:', eventId);
+          WishMessageHandlerService.registerHandler(eventId, iframe);
+          console.log('✅ PLATFORM: Wish message handler registered successfully');
+          console.log('📋 PLATFORM: Updated registered handlers:', WishMessageHandlerService.getRegisteredHandlers());
+        } else if (!iframe) {
+          console.error('❌ PLATFORM: No iframe found - cannot register wish handler!');
+          console.error('❌ PLATFORM: This means wishes will not work!');
+        } else {
+          console.log('📝 PLATFORM: Using existing wish message handler for event:', eventId);
+        }
+        
+        // Process wish message
+        const wishPayload = {
+          ...messageEvent.data.payload,
+          guest_id: guestId,
+          guest_name: guest?.name
+        };
+        console.log('💕 PLATFORM: Original message data:', messageEvent.data);
+        console.log('💕 PLATFORM: Original payload:', messageEvent.data.payload);
+        console.log('💕 PLATFORM: Enhanced wish payload:', wishPayload);
+        console.log('💕 PLATFORM: Guest name being used:', guest?.name);
+        console.log('💕 PLATFORM: Guest ID being used:', guestId);
+        
+        // Create a mock MessageEvent for the wish handler
+        const mockWishEvent = {
+          data: {
+            type: messageEvent.data.type,
+            payload: wishPayload
+          },
+          origin: messageEvent.origin
+        } as MessageEvent;
+        console.log('💕 PLATFORM: Mock event being sent to handler:', mockWishEvent);
+        console.log('💕 PLATFORM: Calling WishMessageHandlerService.handleMessage...');
+        
+        try {
+          await WishMessageHandlerService.handleMessage(mockWishEvent, eventId);
+          console.log('✅ PLATFORM: Wish message processed successfully');
+        } catch (error) {
+          console.error('❌ PLATFORM: Error processing wish message:', error);
+          throw error;
+        }
+        return; // Don't process with SimpleRSVPService
+      }
+      
+      // Process RSVP messages with SimpleRSVPService
+      console.log('🔄 Processing RSVP message with SimpleRSVPService...');
+      
       if (!eventId || !guestId) {
-        console.error('🚨 Missing eventId or guestId for postMessage processing!');
+        console.error('🚨 Missing eventId or guestId for RSVP message processing!');
         console.error('eventId:', eventId);
         console.error('guestId:', guestId);
         console.error('event object exists:', !!event);
@@ -906,6 +1001,7 @@ const GuestInvitationPage = () => {
           <iframe
             key={`${iframeUrl}-${retryCount}`}
             src={iframeUrl}
+            data-template-iframe="true"
             style={{
               width: '100vw',
               height: '100vh',
