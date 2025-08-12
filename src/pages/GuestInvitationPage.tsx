@@ -771,7 +771,9 @@ const GuestInvitationPage = () => {
               guest_id: wish.guest_id,
               guest_name: wish.guest_name,
               content: wish.wish_text,
-              image_url: wish.photo_url,
+              // Exclude large image data from URL to prevent URI_TOO_LONG error
+              // Images will be loaded via postMessage instead
+              image_url: wish.photo_url ? 'HAS_IMAGE' : null,
               likes_count: wish.likes_count || 0,
               is_approved: !!wish.is_approved,
               created_at: wish.created_at

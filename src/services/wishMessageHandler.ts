@@ -188,97 +188,8 @@ export class WishMessageHandlerService {
 
   private static async handleSubmitNewWish(handler: WishMessageHandler, eventId: string, payload: WishSubmissionData) {
     try {
-<<<<<<< HEAD
       // Submit wish via secure RPC to avoid RLS issues
       const photoUrl = payload.image_data ?? null;
-=======
-      // Get event ID from payload if available, otherwise use parameter
-      const targetEventId = (payload as any).event_id || eventId;
-      
-      // Use event ID from payload if available
-      
-      if (!targetEventId) {
-        throw new Error('Event ID is missing');
-      }
-      
-      // Check if wishes are enabled
-      const { data: eventConfig, error: eventConfigError } = await supabase
-        .from('events')
-        .select('id, wishes_enabled, name')
-        .or(`id.eq.${targetEventId},custom_event_id.eq.${targetEventId}`)
-        .single();
-      
-      if (eventConfigError) {
-        throw new Error('Event not found - please check event ID');
-      }
-      
-      if (eventConfig.wishes_enabled === false) {
-        throw new Error('Wishes feature is disabled for this event');
-      }
-      
-      // Resolve event ID
-      let actualEventId = targetEventId;
-      const { data: eventById } = await supabase
-        .from('events')
-        .select('id')
-        .eq('id', targetEventId)
-        .single();
-      
-      if (!eventById) {
-        const { data: eventByCustomId } = await supabase
-          .from('events')
-          .select('id')
-          .eq('custom_event_id', targetEventId)
-          .single();
-        
-        if (eventByCustomId) {
-          actualEventId = eventByCustomId.id;
-        } else {
-          throw new Error(`Event not found for ID: ${targetEventId}`);
-        }
-      }
-      
-      // Resolve guest ID
-      let actualGuestId = payload.guest_id;
-      const { data: guestById } = await supabase
-        .from('guests')
-        .select('id, event_id')
-        .eq('id', payload.guest_id)
-        .single();
-      
-      if (!guestById) {
-        const { data: guestByCustomId } = await supabase
-          .from('guests')
-          .select('id, event_id')
-          .eq('custom_guest_id', payload.guest_id)
-          .single();
-        
-        if (guestByCustomId) {
-          actualGuestId = guestByCustomId.id;
-          if (guestByCustomId.event_id !== actualEventId) {
-            throw new Error('Guest does not belong to this event');
-          }
-        } else {
-          throw new Error(`Guest not found for ID: ${payload.guest_id}`);
-        }
-      } else if (guestById.event_id !== actualEventId) {
-        throw new Error('Guest does not belong to this event');
-      }
-      
-      // Create and insert wish
-      const wishData: any = {
-        event_id: actualEventId,
-        guest_id: actualGuestId,
-        guest_name: payload.guest_name,
-        wish_text: payload.content,
-        is_approved: false,
-        likes_count: 0
-      };
-      
-      if (payload.image_data) {
-        wishData.photo_url = payload.image_data;
-      }
->>>>>>> 9164610 (fix the code)
 
       const { data: wish, error } = await supabase
         .rpc('submit_wish_secure', {
@@ -292,25 +203,15 @@ export class WishMessageHandlerService {
       if (error) {
         throw new Error('Database insertion failed');
       }
-<<<<<<< HEAD
 
       const insertedWish = wish as any;
       console.log('✅ Wish submitted successfully:', insertedWish?.id);
       console.log('✅ Complete wish data returned:', JSON.stringify(insertedWish, null, 2));
-=======
->>>>>>> 9164610 (fix the code)
       
       // Send success response
       this.sendMessageToTemplate(handler.iframe, {
         type: MESSAGE_TYPES.WISH_SUBMITTED_SUCCESS,
-<<<<<<< HEAD
         payload: { wish: insertedWish }
-=======
-        payload: { 
-          wish,
-          message: 'Wish submitted successfully!'
-        }
->>>>>>> 9164610 (fix the code)
       });
 
       // Refresh wishes list
@@ -571,5 +472,3 @@ interface WishMessageHandler {
   iframe: HTMLIFrameElement;
   onWishUpdate?: (wishes: any[]) => void;
 }
-
-

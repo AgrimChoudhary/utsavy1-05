@@ -46,3 +46,7 @@ COMMIT;
 
 -- Test query to verify the fix worked:
 -- SELECT 'RLS policies updated successfully!' as status;
+
+
+
+
