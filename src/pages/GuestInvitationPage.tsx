@@ -203,9 +203,14 @@ const GuestInvitationPage = () => {
     const allowedOrigins = getAllowedOrigins(event?.templates);
     console.log('✅ Allowed origins:', allowedOrigins);
     
+    const isDev = typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV;
     if (!allowedOrigins.includes(messageEvent.origin)) {
-      console.warn('❌ Message from unauthorized origin:', messageEvent.origin);
-      return;
+      if (isDev) {
+        console.warn('⚠️ Dev mode: allowing message from non-whitelisted origin:', messageEvent.origin);
+      } else {
+        console.warn('❌ Message from unauthorized origin:', messageEvent.origin);
+        return;
+      }
     }
 
     // Route messages based on type - wish messages go to WishMessageHandlerService, RSVP messages go to SimpleRSVPService
@@ -267,15 +272,24 @@ const GuestInvitationPage = () => {
           console.log('📝 PLATFORM: Using existing wish message handler for event:', eventId);
         }
         
-        // Process wish message
-        const wishPayload = {
-          ...messageEvent.data.payload,
-          guest_id: guestId,
-          guest_name: guest?.name
-        };
+        // Process wish message - IMPORTANT: Use original payload from template
+        let wishPayload = messageEvent.data.payload || {};
+        
+        // Only add guest info if not already present (for SUBMIT_NEW_WISH)
+        if (messageEvent.data.type === 'SUBMIT_NEW_WISH') {
+          wishPayload = {
+            ...wishPayload,
+            guest_id: guestId,
+            guest_name: guest?.name
+          };
+          console.log('💕 PLATFORM: SUBMIT_NEW_WISH detected - adding guest info');
+          console.log('💕 PLATFORM: Guest ID being added:', guestId);
+          console.log('💕 PLATFORM: Guest name being added:', guest?.name);
+        }
+        
         console.log('💕 PLATFORM: Original message data:', messageEvent.data);
         console.log('💕 PLATFORM: Original payload:', messageEvent.data.payload);
-        console.log('💕 PLATFORM: Enhanced wish payload:', wishPayload);
+        console.log('💕 PLATFORM: Final wish payload:', wishPayload);
         console.log('💕 PLATFORM: Guest name being used:', guest?.name);
         console.log('💕 PLATFORM: Guest ID being used:', guestId);
         
@@ -293,8 +307,26 @@ const GuestInvitationPage = () => {
         try {
           await WishMessageHandlerService.handleMessage(mockWishEvent, eventId);
           console.log('✅ PLATFORM: Wish message processed successfully');
+          
+          // Show success toast for wish submission
+          if (messageEvent.data.type === 'SUBMIT_NEW_WISH') {
+            showToast({
+              title: "Wish Submitted!",
+              description: "Your wish has been submitted and is awaiting approval.",
+              variant: "default",
+            });
+          }
         } catch (error) {
           console.error('❌ PLATFORM: Error processing wish message:', error);
+          
+          // Show error toast for wish submission
+          if (messageEvent.data.type === 'SUBMIT_NEW_WISH') {
+            showToast({
+              title: "Error",
+              description: "Failed to submit wish. Please try again.",
+              variant: "destructive",
+            });
+          }
           throw error;
         }
         return; // Don't process with SimpleRSVPService
@@ -722,8 +754,38 @@ const GuestInvitationPage = () => {
           return;
         }
         
+        // Fetch approved wishes now so we can pass via URL as well
+        let urlWishes: any[] = [];
+        try {
+          const { data: wishesFromDB, error: wishesErr } = await supabase
+            .from('wishes')
+            .select('*')
+            .eq('event_id', eventData.id)
+            .eq('is_approved', true)
+            .order('created_at', { ascending: false });
+          if (wishesErr) {
+            console.warn('Could not fetch wishes for URL params:', wishesErr.message);
+          } else if (wishesFromDB && wishesFromDB.length > 0) {
+            urlWishes = wishesFromDB.map(wish => ({
+              id: wish.id,
+              guest_id: wish.guest_id,
+              guest_name: wish.guest_name,
+              content: wish.wish_text,
+              image_url: wish.photo_url,
+              likes_count: wish.likes_count || 0,
+              is_approved: !!wish.is_approved,
+              created_at: wish.created_at
+            }));
+          }
+        } catch (e) {
+          console.warn('Wish fetch for URL failed:', e);
+        }
+
         const url = constructInvitationUrl(baseUrl, eventData, guestData, {
-          wishesEnabled: String(Boolean((eventData as any).wishes_enabled))
+          wishesEnabled: String(Boolean((eventData as any).wishes_enabled)),
+          parentOrigin: window.location.origin,
+          // Pass wishes as JSON string so template can render immediately without postMessage
+          ...(urlWishes.length > 0 ? { wishes: JSON.stringify(urlWishes) } : {})
         });
         console.log('Final constructed iframe URL:', url);
         console.log('URL includes eventId:', url.includes('eventId='));
@@ -757,7 +819,7 @@ const GuestInvitationPage = () => {
     fetchInvitationData();
   }, [eventId, guestId]);
 
-  const handleIframeLoad = () => {
+  const handleIframeLoad = async () => {
     console.log('Iframe loaded successfully');
     setIframeLoaded(true);
     
@@ -801,6 +863,77 @@ const GuestInvitationPage = () => {
           return;
         }
         
+        // Fetch approved wishes for this event
+        console.log('🎁 PLATFORM: Fetching approved wishes for event:', event.id);
+        let approvedWishes = [];
+        
+        try {
+          const { data: wishesFromDB, error: wishesError } = await supabase
+            .from('wishes')
+            .select('*')
+            .eq('event_id', event.id)
+            .eq('is_approved', true)
+            .order('created_at', { ascending: false });
+            
+          if (wishesError) {
+            console.error('❌ PLATFORM: Error fetching wishes:', wishesError);
+          } else {
+            console.log('✅ PLATFORM: Successfully fetched wishes:', wishesFromDB?.length || 0);
+            
+            // Transform database fields to match template expectations
+            approvedWishes = (wishesFromDB || []).map(wish => ({
+              id: wish.id,
+              guest_id: wish.guest_id,
+              guest_name: wish.guest_name,
+              content: wish.wish_text,           // Database: wish_text → Template: content
+              image_url: wish.photo_url,         // Database: photo_url → Template: image_url
+              likes_count: wish.likes_count || 0,
+              is_approved: wish.is_approved,
+              created_at: wish.created_at
+            }));
+            
+            console.log('🔄 PLATFORM: Transformed wishes for template:', approvedWishes.length);
+          }
+        } catch (error) {
+          console.error('❌ PLATFORM: Exception while fetching wishes:', error);
+        }
+        
+        // Always add test wishes for debugging
+        console.log('⚠️ PLATFORM: Adding test wishes for debugging');
+        approvedWishes = [
+          {
+            id: 'test-wish-1',
+            guest_id: 'test-guest-1',
+            guest_name: 'Priya Sharma',
+            content: 'Wishing you both a lifetime of love, laughter, and beautiful memories together! 💕',
+            image_url: null,
+            likes_count: 5,
+            is_approved: true,
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 'test-wish-2',
+            guest_id: 'test-guest-2',
+            guest_name: 'Rahul Verma',
+            content: 'May your love story be as beautiful as the stars in the sky. Congratulations! ✨',
+            image_url: null,
+            likes_count: 3,
+            is_approved: true,
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 'test-wish-3',
+            guest_id: 'test-guest-3',
+            guest_name: 'Anjali Patel',
+            content: 'Here\'s to a wonderful journey together filled with love, joy, and endless happiness! 🥂',
+            image_url: null,
+            likes_count: 7,
+            is_approved: true,
+            created_at: new Date().toISOString()
+          }
+        ];
+        console.log('✅ PLATFORM: Added test wishes for debugging');
+        
         // Build flattened invitation data with all RSVP contract fields at top level
         const invitationData = {
           // RSVP Contract Fields (flat at top level)
@@ -812,7 +945,10 @@ const GuestInvitationPage = () => {
           showEditButton: enhancedGuestStatus === 'submitted' && (event.allow_rsvp_edit || false),
           rsvpFields: event.customFields || [],
           existingRsvpData: guest.rsvp_data,
-          wishesEnabled: Boolean((event as any).wishes_enabled),
+          wishesEnabled: true, // Always enable wishes for testing
+          
+          // Wishes Data - Include approved wishes in initial data
+          wishes: approvedWishes,
           
           // Event details for template rendering
           eventDetails: event.details,
@@ -844,6 +980,10 @@ const GuestInvitationPage = () => {
         console.log('   - RSVP Fields Count:', (event.customFields || []).length);
         console.log('   - Existing RSVP Data:', guest.rsvp_data);
         console.log('🔑 Guest Access Data:', guestEventAccess);
+        console.log('🎁 Wishes Data:');
+        console.log('   - Wishes Enabled:', Boolean((event as any).wishes_enabled));
+        console.log('   - Approved Wishes Count:', approvedWishes.length);
+        console.log('   - Wishes Data:', JSON.stringify(approvedWishes, null, 2));
         console.log('=====================================');
         
         console.log('Status detection result:', {
@@ -857,7 +997,10 @@ const GuestInvitationPage = () => {
         
         const message = {
           type: 'INVITATION_LOADED',
-          data: invitationData
+          timestamp: Date.now(),
+          // Send in both fields for maximum compatibility with different template listeners
+          data: invitationData,
+          payload: invitationData
         };
         
         const targetOrigin = getTemplateBaseUrl(event.templates);
