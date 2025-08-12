@@ -308,97 +308,17 @@ export class WishMessageHandlerService {
     console.log('🔍 Event ID type:', typeof eventId, 'Value:', eventId);
 
     try {
-      // Resolve event ID to actual database UUID
-      let actualEventId = eventId;
-      
-      console.log('🔍 Resolving event ID from:', eventId);
-      
-      // First try as actual UUID
-      const { data: eventById } = await supabase
-        .from('events')
-        .select('id')
-        .eq('id', eventId)
-        .single();
-      
-      if (!eventById) {
-        // Try as custom_event_id
-        console.log('🔄 Event ID not found as UUID, trying as custom_event_id...');
-        const { data: eventByCustomId } = await supabase
-          .from('events')
-          .select('id')
-          .eq('custom_event_id', eventId)
-          .single();
-        
-        if (eventByCustomId) {
-          actualEventId = eventByCustomId.id;
-          console.log('✅ Resolved custom event ID to actual ID:', actualEventId);
-        } else {
-          console.error('❌ Event not found with ID:', eventId);
-          throw new Error(`Event not found for ID: ${eventId}`);
-        }
-      } else {
-        console.log('✅ Event ID is already actual UUID:', actualEventId);
-      }
-      
-      // Resolve guest ID to actual database UUID (critical for RLS policies)
-      let actualGuestId = payload.guest_id;
-      
-      console.log('🔍 Resolving guest ID from:', payload.guest_id);
-      
-      // First try as actual UUID
-      const { data: guestById } = await supabase
-        .from('guests')
-        .select('id')
-        .eq('id', payload.guest_id)
-        .single();
-      
-      if (!guestById) {
-        // Try as custom_guest_id
-        console.log('🔄 Guest ID not found as UUID, trying as custom_guest_id...');
-        const { data: guestByCustomId } = await supabase
-          .from('guests')
-          .select('id')
-          .eq('custom_guest_id', payload.guest_id)
-          .single();
-        
-        if (guestByCustomId) {
-          actualGuestId = guestByCustomId.id;
-          console.log('✅ Resolved custom guest ID to actual ID:', actualGuestId);
-        } else {
-          console.error('❌ Guest not found with ID:', payload.guest_id);
-          throw new Error(`Guest not found for ID: ${payload.guest_id}`);
-        }
-      } else {
-        console.log('✅ Guest ID is already actual UUID:', actualGuestId);
-      }
-      
-      // Create wish data with resolved IDs
-      const wishData: any = {
-        event_id: actualEventId, // Use resolved actual event ID
-        guest_id: actualGuestId, // Use resolved actual guest ID
-        guest_name: payload.guest_name,
-        wish_text: payload.content,
-        is_approved: false,
-        likes_count: 0
-      };
-      
-      console.log('💾 Wish data being inserted:', JSON.stringify(wishData, null, 2));
+      // Submit wish via secure RPC to avoid RLS issues
+      const photoUrl = payload.image_data ?? null;
 
-      // Handle image if present
-      if (payload.image_data) {
-        console.log('🖼️ Processing image upload...');
-        // For now, store image data as photo_url (base64)
-        // In production, you'd upload to Supabase Storage
-        wishData.photo_url = payload.image_data;
-      }
-
-      console.log('📤 About to insert wish into database...');
-      
       const { data: wish, error } = await supabase
-        .from('wishes')
-        .insert(wishData)
-        .select()
-        .single();
+        .rpc('submit_wish_secure', {
+          p_event: eventId,
+          p_guest: payload.guest_id,
+          p_guest_name: payload.guest_name,
+          p_content: payload.content,
+          p_photo_url: photoUrl,
+        });
 
       if (error) {
         console.error('💥 Database error during wish insertion:', error);
@@ -406,12 +326,13 @@ export class WishMessageHandlerService {
         throw error;
       }
 
-      console.log('✅ Wish submitted successfully:', wish.id);
-      console.log('✅ Complete wish data returned:', JSON.stringify(wish, null, 2));
+      const insertedWish = wish as any;
+      console.log('✅ Wish submitted successfully:', insertedWish?.id);
+      console.log('✅ Complete wish data returned:', JSON.stringify(insertedWish, null, 2));
       
       this.sendMessageToTemplate(handler.iframe, {
         type: MESSAGE_TYPES.WISH_SUBMITTED_SUCCESS,
-        payload: { wish }
+        payload: { wish: insertedWish }
       });
 
       // Refresh wishes list
