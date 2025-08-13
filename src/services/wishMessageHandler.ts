@@ -556,12 +556,35 @@ export class WishMessageHandlerService {
     console.log('❤️ Toggling wish like:', payload.wishId, 'by guest:', payload.guestName);
 
     try {
+      // Resolve guestId to actual database UUID (custom_guest_id → id)
+      let actualGuestId = payload.guestId;
+      console.log('🔍 Resolving guest ID for like from:', payload.guestId);
+      const { data: guestById } = await supabase
+        .from('guests')
+        .select('id')
+        .eq('id', payload.guestId)
+        .single();
+      if (!guestById) {
+        console.log('🔄 Guest ID not a UUID, trying custom_guest_id...');
+        const { data: guestByCustomId } = await supabase
+          .from('guests')
+          .select('id')
+          .eq('custom_guest_id', payload.guestId)
+          .single();
+        if (guestByCustomId) {
+          actualGuestId = guestByCustomId.id;
+          console.log('✅ Resolved custom guest ID to actual ID for like:', actualGuestId);
+        } else {
+          throw new Error(`Guest not found for like operation: ${payload.guestId}`);
+        }
+      }
+
       // Check if guest already liked this wish
       const { data: existingLike, error: checkError } = await supabase
         .from('wish_likes')
         .select('id')
         .eq('wish_id', payload.wishId)
-        .eq('guest_id', payload.guestId)
+        .eq('guest_id', actualGuestId)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
@@ -587,28 +610,38 @@ export class WishMessageHandlerService {
           .from('wish_likes')
           .insert({
             wish_id: payload.wishId,
-            guest_id: payload.guestId
+            guest_id: actualGuestId
           });
 
         if (insertError) throw insertError;
 
-        // Increment likes count
-        await supabase.rpc('increment_wish_likes', { wish_id: payload.wishId });
+        // Increment likes count (RPC, ignore error but log)
+        const { error: incErr } = await supabase.rpc('increment_wish_likes', { wish_id: payload.wishId });
+        if (incErr) {
+          console.warn('⚠️ RPC increment_wish_likes failed, will recalc via count:', incErr);
+        }
       }
 
-      // Get updated like count and status
-      const { data: updatedWish } = await supabase
-        .from('wishes')
-        .select('likes_count')
-        .eq('id', payload.wishId)
-        .single();
+      // Get updated like count by counting likes to be robust
+      const { count: likesCount } = await supabase
+        .from('wish_likes')
+        .select('id', { count: 'exact', head: true })
+        .eq('wish_id', payload.wishId);
+
+      // Sync likes_count column (best-effort)
+      if (typeof likesCount === 'number') {
+        await supabase
+          .from('wishes')
+          .update({ likes_count: likesCount })
+          .eq('id', payload.wishId);
+      }
 
       // Check if current guest has liked this wish
       const { data: currentLike } = await supabase
         .from('wish_likes')
         .select('id')
         .eq('wish_id', payload.wishId)
-        .eq('guest_id', payload.guestId)
+        .eq('guest_id', actualGuestId)
         .single();
 
       console.log('✅ Wish like toggled successfully');
@@ -617,7 +650,7 @@ export class WishMessageHandlerService {
         type: MESSAGE_TYPES.WISH_LIKE_UPDATED,
         payload: { 
           wishId: payload.wishId,
-          likes_count: updatedWish?.likes_count || 0,
+          likes_count: typeof likesCount === 'number' ? likesCount : 0,
           hasLiked: !!currentLike
         }
       });
