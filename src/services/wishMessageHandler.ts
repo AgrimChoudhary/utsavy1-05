@@ -36,24 +36,38 @@ export class WishMessageHandlerService {
   }
 
   static async handleMessage(event: MessageEvent, eventId: string) {
+    console.log('🚀 PLATFORM: WishMessageHandlerService.handleMessage called');
+    console.log('🚀 PLATFORM: Event ID received:', eventId);
+    console.log('🚀 PLATFORM: Event ID type:', typeof eventId);
+    console.log('🚀 PLATFORM: Available handlers:', Array.from(this.handlers.keys()));
+    
     const handler = this.handlers.get(eventId);
     if (!handler) {
+      console.error('❌ PLATFORM: No wish message handler found for event:', eventId);
+      console.error('❌ PLATFORM: Available handlers:', Array.from(this.handlers.keys()));
+      console.error('❌ PLATFORM: This means template requests will not be processed!');
       return;
     }
+
+    console.log('✅ PLATFORM: Found handler for event:', eventId);
+    console.log('🖼️ PLATFORM: Handler has iframe:', !!handler.iframe);
+    console.log('🖼️ PLATFORM: Handler has contentWindow:', !!handler.iframe?.contentWindow);
 
     const { type, payload } = event.data;
     
-    // Security check
-    const origin = event.origin || '';
-    const isAllowedOrigin =
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1') ||
-      origin.includes('vercel.app') ||
-      origin === window.location.origin;
-
-    if (!isAllowedOrigin) {
+    console.log('🔍 PLATFORM: Message type:', type);
+    console.log('🔍 PLATFORM: Event origin:', event.origin);
+    console.log('🔍 PLATFORM: Full event data:', JSON.stringify(event.data, null, 2));
+    
+    // Security check - verify origin
+    if (!event.origin || !event.origin.includes('localhost') && !event.origin.includes('vercel.app')) {
+      console.warn('🚨 PLATFORM: Unauthorized origin for wish message:', event.origin);
       return;
     }
+
+    console.log('💕 PLATFORM: Processing wish message:', type, 'for event:', eventId);
+    console.log('📦 PLATFORM: Message payload:', payload);
+    console.log('📦 PLATFORM: Full payload structure:', JSON.stringify(payload, null, 2));
 
     try {
       switch (type) {
@@ -95,43 +109,143 @@ export class WishMessageHandlerService {
   }
 
   private static async handleRequestInitialWishesData(handler: WishMessageHandler, eventId: string) {
+    console.log('📋 PLATFORM: Handling REQUEST_INITIAL_WISHES_DATA');
+    console.log('📋 PLATFORM: Fetching wishes for event ID:', eventId);
+    console.log('📋 PLATFORM: Event ID type:', typeof eventId);
+    
     try {
-      const { data: wishesFromDB, error } = await supabase
+      console.log('🔍 PLATFORM: Querying database for approved wishes...');
+      console.log('🔍 PLATFORM: Query conditions - event_id:', eventId, 'is_approved: true');
+      console.log('🔍 PLATFORM: About to execute Supabase query...');
+      
+      // First, let's check if ANY wishes exist for this event (for debugging)
+      const { data: allWishesForEvent, error: allWishesError } = await supabase
+        .from('wishes')
+        .select('id, guest_name, is_approved, created_at')
+        .eq('event_id', eventId);
+        
+      if (allWishesError) {
+        console.error('❌ PLATFORM: Error checking all wishes for event:', allWishesError);
+      } else {
+        console.log('📊 PLATFORM: Total wishes for event:', allWishesForEvent?.length || 0);
+        const approvedCount = allWishesForEvent?.filter(w => w.is_approved).length || 0;
+        const pendingCount = (allWishesForEvent?.length || 0) - approvedCount;
+        console.log('📊 PLATFORM: Approved:', approvedCount, '| Pending:', pendingCount);
+        
+        if (allWishesForEvent?.length === 0) {
+          console.warn('⚠️ PLATFORM: No wishes found - guests need to submit wishes first');
+        } else if (approvedCount === 0) {
+          console.warn('⚠️ PLATFORM: Wishes exist but none are approved yet');
+          console.warn('💡 PLATFORM: SOLUTION: Host should approve wishes in management panel');
+        }
+      }
+      
+      // Now query for approved wishes only
+      const queryPromise = supabase
         .from('wishes')
         .select('*')
         .eq('event_id', eventId)
         .eq('is_approved', true)
         .order('created_at', { ascending: false });
+        
+      console.log('⏳ PLATFORM: Query created, now executing...');
+      
+      const { data: wishesFromDB, error } = await Promise.race([
+        queryPromise,
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout after 10 seconds')), 10000)
+        )
+      ]) as any;
+      
+      console.log('🏁 PLATFORM: Query execution completed!');
+      console.log('🏁 PLATFORM: Error status:', !!error);
+      console.log('🏁 PLATFORM: Data status:', !!wishesFromDB);
 
       if (error) {
+        console.error('❌ PLATFORM: Database error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
+      }
+
+      console.log('✅ PLATFORM: Database query successful!');
+      console.log('📊 PLATFORM: Approved wishes from DB:', wishesFromDB?.length || 0);
+      console.log('📊 PLATFORM: Raw approved wishes data:', wishesFromDB);
+      
+      if (!wishesFromDB || wishesFromDB.length === 0) {
+        console.warn('⚠️ PLATFORM: No approved wishes found in database for event:', eventId);
+        console.warn('⚠️ PLATFORM: Possible reasons:');
+        console.warn('   1. Event ID is incorrect');
+        console.warn('   2. No wishes have been submitted yet'); 
+        console.warn('   3. Wishes exist but are not approved (is_approved = false)');
+        console.warn('💡 PLATFORM: Check wish management panel to approve pending wishes');
       }
       
       // Transform database fields to match template expectations
-      const transformedWishes = (wishesFromDB || []).map(wish => ({
-        id: wish.id,
-        guest_id: wish.guest_id,
-        guest_name: wish.guest_name,
-        content: wish.wish_text,
-        image_url: wish.photo_url,
-        likes_count: wish.likes_count || 0,
-        is_approved: wish.is_approved,
-        created_at: wish.created_at
-      }));
+      // Only include fields that actually exist in database
+      const transformedWishes = (wishesFromDB || []).map(wish => {
+        // Validate required fields
+        if (!wish.id || !wish.guest_name || !wish.wish_text) {
+          console.warn('⚠️ PLATFORM: Wish missing required fields:', wish);
+        }
+        
+        return {
+          id: wish.id,
+          guest_id: wish.guest_id,
+          guest_name: wish.guest_name,
+          content: wish.wish_text,           // Database: wish_text → Template: content
+          image_url: wish.photo_url,         // Database: photo_url → Template: image_url (can be null)
+          likes_count: wish.likes_count || 0,
+          is_approved: wish.is_approved,
+          created_at: wish.created_at
+          // Removed: replies_count (doesn't exist in DB)
+          // Removed: updated_at (doesn't exist in DB) 
+          // Removed: hasLiked (doesn't exist in DB)
+        };
+      });
       
-      this.sendMessageToTemplate(handler.iframe, {
+      console.log('🔄 PLATFORM: Transformed wishes for template:', transformedWishes?.length || 0);
+      console.log('📊 PLATFORM: Sample transformed wish:', transformedWishes[0]);
+      console.log('📊 PLATFORM: All transformed wishes:', JSON.stringify(transformedWishes, null, 2));
+      
+      // Validate iframe before sending
+      if (!handler.iframe || !handler.iframe.contentWindow) {
+        console.error('❌ PLATFORM: Cannot send to template - invalid iframe');
+        console.error('❌ PLATFORM: Handler iframe:', handler.iframe);
+        console.error('❌ PLATFORM: This means template will not receive wishes data');
+        return;
+      }
+      
+      const responseMessage = {
         type: MESSAGE_TYPES.INITIAL_WISHES_DATA,
         payload: { wishes: transformedWishes }
-      });
+      };
+      
+      console.log('📤 PLATFORM: Sending wishes to template...');
+      console.log('📤 PLATFORM: Response message:', responseMessage);
+      console.log('📤 PLATFORM: Wishes being sent:', transformedWishes?.length || 0);
+      console.log('📤 PLATFORM: Target iframe contentWindow exists:', !!handler.iframe.contentWindow);
+      
+      this.sendMessageToTemplate(handler.iframe, responseMessage);
+      
+      console.log('✅ PLATFORM: Wishes data sent to template successfully');
 
       if (handler.onWishUpdate) {
         handler.onWishUpdate(transformedWishes);
       }
     } catch (error) {
+      console.error('❌ PLATFORM: Error fetching initial wishes:', error);
+      console.error('❌ PLATFORM: Stack trace:', error.stack);
+      
       this.sendMessageToTemplate(handler.iframe, {
         type: MESSAGE_TYPES.ERROR,
         payload: { 
-          error: 'Failed to fetch wishes'
+          error: 'Failed to fetch wishes',
+          details: error.message,
+          eventId: eventId
         }
       });
     }
@@ -187,44 +301,128 @@ export class WishMessageHandlerService {
   }
 
   private static async handleSubmitNewWish(handler: WishMessageHandler, eventId: string, payload: WishSubmissionData) {
+    console.log('📝 Submitting new wish for event:', eventId, 'by guest:', payload.guest_name);
+    console.log('📦 Wish content:', payload.content);
+    console.log('🖼️ Has image:', !!payload.image_data);
+    console.log('🔍 Complete payload received:', JSON.stringify(payload, null, 2));
+    console.log('🔍 Event ID type:', typeof eventId, 'Value:', eventId);
+
     try {
-      // Submit wish via secure RPC to avoid RLS issues
-      const photoUrl = payload.image_data ?? null;
+      // Resolve event ID to actual database UUID
+      let actualEventId = eventId;
+      
+      console.log('🔍 Resolving event ID from:', eventId);
+      
+      // First try as actual UUID
+      const { data: eventById } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .single();
+      
+      if (!eventById) {
+        // Try as custom_event_id
+        console.log('🔄 Event ID not found as UUID, trying as custom_event_id...');
+        const { data: eventByCustomId } = await supabase
+          .from('events')
+          .select('id')
+          .eq('custom_event_id', eventId)
+          .single();
+        
+        if (eventByCustomId) {
+          actualEventId = eventByCustomId.id;
+          console.log('✅ Resolved custom event ID to actual ID:', actualEventId);
+        } else {
+          console.error('❌ Event not found with ID:', eventId);
+          throw new Error(`Event not found for ID: ${eventId}`);
+        }
+      } else {
+        console.log('✅ Event ID is already actual UUID:', actualEventId);
+      }
+      
+      // Resolve guest ID to actual database UUID (critical for RLS policies)
+      let actualGuestId = payload.guest_id;
+      
+      console.log('🔍 Resolving guest ID from:', payload.guest_id);
+      
+      // First try as actual UUID
+      const { data: guestById } = await supabase
+        .from('guests')
+        .select('id')
+        .eq('id', payload.guest_id)
+        .single();
+      
+      if (!guestById) {
+        // Try as custom_guest_id
+        console.log('🔄 Guest ID not found as UUID, trying as custom_guest_id...');
+        const { data: guestByCustomId } = await supabase
+          .from('guests')
+          .select('id')
+          .eq('custom_guest_id', payload.guest_id)
+          .single();
+        
+        if (guestByCustomId) {
+          actualGuestId = guestByCustomId.id;
+          console.log('✅ Resolved custom guest ID to actual ID:', actualGuestId);
+        } else {
+          console.error('❌ Guest not found with ID:', payload.guest_id);
+          throw new Error(`Guest not found for ID: ${payload.guest_id}`);
+        }
+      } else {
+        console.log('✅ Guest ID is already actual UUID:', actualGuestId);
+      }
+      
+      // Create wish data with resolved IDs
+      const wishData: any = {
+        event_id: actualEventId, // Use resolved actual event ID
+        guest_id: actualGuestId, // Use resolved actual guest ID
+        guest_name: payload.guest_name,
+        wish_text: payload.content,
+        is_approved: false,
+        likes_count: 0
+      };
+      
+      console.log('💾 Wish data being inserted:', JSON.stringify(wishData, null, 2));
 
-      const { data: wish, error } = await supabase
-        .rpc('submit_wish_secure', {
-          p_event: eventId,
-          p_guest: payload.guest_id,
-          p_guest_name: payload.guest_name,
-          p_content: payload.content,
-          p_photo_url: photoUrl,
-        });
-
-      if (error) {
-        throw new Error('Database insertion failed');
+      // Handle image if present
+      if (payload.image_data) {
+        console.log('🖼️ Processing image upload...');
+        // For now, store image data as photo_url (base64)
+        // In production, you'd upload to Supabase Storage
+        wishData.photo_url = payload.image_data;
       }
 
-      const insertedWish = wish as any;
-      console.log('✅ Wish submitted successfully:', insertedWish?.id);
-      console.log('✅ Complete wish data returned:', JSON.stringify(insertedWish, null, 2));
+      console.log('📤 About to insert wish into database...');
       
-      // Send success response
+      const { data: wish, error } = await supabase
+        .from('wishes')
+        .insert(wishData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('💥 Database error during wish insertion:', error);
+        console.error('💥 Error details:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+
+      console.log('✅ Wish submitted successfully:', wish.id);
+      console.log('✅ Complete wish data returned:', JSON.stringify(wish, null, 2));
+      
       this.sendMessageToTemplate(handler.iframe, {
         type: MESSAGE_TYPES.WISH_SUBMITTED_SUCCESS,
-        payload: { wish: insertedWish }
+        payload: { wish }
       });
 
       // Refresh wishes list
       if (handler.onWishUpdate) {
         await this.handleRequestWishesRefresh(handler, eventId);
       }
-      
     } catch (error) {
+      console.error('❌ Error submitting wish:', error);
       this.sendMessageToTemplate(handler.iframe, {
         type: MESSAGE_TYPES.WISH_SUBMITTED_ERROR,
-        payload: { 
-          error: error.message || 'Failed to submit wish'
-        }
+        payload: { error: 'Failed to submit wish' }
       });
     }
   }
@@ -458,12 +656,25 @@ export class WishMessageHandlerService {
   }
 
   private static sendMessageToTemplate(iframe: HTMLIFrameElement, message: any) {
-    if (iframe?.contentWindow) {
+    console.log('📤 PLATFORM: sendMessageToTemplate called');
+    console.log('📤 PLATFORM: Message type:', message.type);
+    console.log('📤 PLATFORM: Full message:', JSON.stringify(message, null, 2));
+    console.log('🖼️ PLATFORM: Iframe exists:', !!iframe);
+    console.log('🖼️ PLATFORM: ContentWindow exists:', !!iframe?.contentWindow);
+    
+    if (iframe.contentWindow) {
+      console.log('✅ PLATFORM: Sending message to template via postMessage');
+      console.log('📤 PLATFORM: Target origin: *');
+      
       try {
         iframe.contentWindow.postMessage(message, '*');
+        console.log('✅ PLATFORM: Message sent successfully!');
       } catch (error) {
-        console.error('Failed to send message to template:', error);
+        console.error('❌ PLATFORM: Error sending message:', error);
       }
+    } else {
+      console.error('❌ PLATFORM: Cannot send message - iframe contentWindow not available');
+      console.error('❌ PLATFORM: This means template will not receive wishes!');
     }
   }
 }
@@ -472,3 +683,5 @@ interface WishMessageHandler {
   iframe: HTMLIFrameElement;
   onWishUpdate?: (wishes: any[]) => void;
 }
+
+

@@ -446,16 +446,6 @@ export type Database = {
         Args: { wish_id: string }
         Returns: undefined
       }
-      submit_wish_secure: {
-        Args: {
-          p_event: string
-          p_guest: string
-          p_guest_name: string
-          p_content: string
-          p_photo_url?: string
-        }
-        Returns: Json
-      }
       user_can_view_event: {
         Args: { event_id: string }
         Returns: boolean
