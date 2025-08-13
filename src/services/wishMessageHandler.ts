@@ -412,9 +412,12 @@ export class WishMessageHandlerService {
       // Handle image if present
       if (payload.image_data) {
         console.log('🖼️ Processing image upload...');
-        // For now, store image data as photo_url (base64)
-        // In production, you'd upload to Supabase Storage
-        wishData.photo_url = payload.image_data;
+        // Store as full data URL so templates can render directly
+        const mimeType = payload.image_type || 'image/jpeg';
+        const hasPrefix = payload.image_data.startsWith('data:');
+        wishData.photo_url = hasPrefix
+          ? payload.image_data
+          : `data:${mimeType};base64,${payload.image_data}`;
       }
 
       console.log('📤 About to insert wish into database...');
