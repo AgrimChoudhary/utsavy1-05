@@ -60,7 +60,7 @@ export class WishMessageHandlerService {
     console.log('🔍 PLATFORM: Full event data:', JSON.stringify(event.data, null, 2));
     
     // Security check - verify origin
-    if (!event.origin || !event.origin.includes('localhost') && !event.origin.includes('vercel.app')) {
+    if (!event.origin || (!event.origin.includes('localhost') && !event.origin.includes('127.0.0.1') && !event.origin.includes('vercel.app'))) {
       console.warn('🚨 PLATFORM: Unauthorized origin for wish message:', event.origin);
       return;
     }
@@ -114,15 +114,40 @@ export class WishMessageHandlerService {
     console.log('📋 PLATFORM: Event ID type:', typeof eventId);
     
     try {
+      // Resolve eventId (custom_event_id → actual UUID) before querying wishes
+      let actualEventId = eventId;
+      console.log('🔍 PLATFORM: Resolving event ID for wishes fetch:', eventId);
+      const { data: eventById } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .single();
+      if (!eventById) {
+        console.log('🔄 PLATFORM: Event ID not a UUID, trying custom_event_id...');
+        const { data: eventByCustomId } = await supabase
+          .from('events')
+          .select('id')
+          .eq('custom_event_id', eventId)
+          .single();
+        if (eventByCustomId) {
+          actualEventId = eventByCustomId.id;
+          console.log('✅ PLATFORM: Resolved custom_event_id to UUID:', actualEventId);
+        } else {
+          console.warn('⚠️ PLATFORM: Event not found by id or custom_event_id:', eventId);
+        }
+      } else {
+        console.log('✅ PLATFORM: Provided eventId is a valid UUID');
+      }
+
       console.log('🔍 PLATFORM: Querying database for approved wishes...');
-      console.log('🔍 PLATFORM: Query conditions - event_id:', eventId, 'is_approved: true');
+      console.log('🔍 PLATFORM: Query conditions - event_id:', actualEventId, 'is_approved: true');
       console.log('🔍 PLATFORM: About to execute Supabase query...');
       
       // First, let's check if ANY wishes exist for this event (for debugging)
       const { data: allWishesForEvent, error: allWishesError } = await supabase
         .from('wishes')
         .select('id, guest_name, is_approved, created_at')
-        .eq('event_id', eventId);
+        .eq('event_id', actualEventId);
         
       if (allWishesError) {
         console.error('❌ PLATFORM: Error checking all wishes for event:', allWishesError);
@@ -144,7 +169,7 @@ export class WishMessageHandlerService {
       const queryPromise = supabase
         .from('wishes')
         .select('*')
-        .eq('event_id', eventId)
+        .eq('event_id', actualEventId)
         .eq('is_approved', true)
         .order('created_at', { ascending: false });
         
@@ -431,11 +456,29 @@ export class WishMessageHandlerService {
     console.log('✅ Approving wish:', payload.wishId, 'for event:', eventId);
 
     try {
+      // Resolve eventId to actual UUID before updating
+      let actualEventId = eventId;
+      const { data: eventById } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .single();
+      if (!eventById) {
+        const { data: eventByCustomId } = await supabase
+          .from('events')
+          .select('id')
+          .eq('custom_event_id', eventId)
+          .single();
+        if (eventByCustomId) {
+          actualEventId = eventByCustomId.id;
+        }
+      }
+
       const { error } = await supabase
         .from('wishes')
         .update({ is_approved: true })
         .eq('id', payload.wishId)
-        .eq('event_id', eventId);
+        .eq('event_id', actualEventId);
 
       if (error) throw error;
 
@@ -463,11 +506,29 @@ export class WishMessageHandlerService {
     console.log('🗑️ Deleting wish:', payload.wishId, 'for event:', eventId);
 
     try {
+      // Resolve eventId to actual UUID before deleting
+      let actualEventId = eventId;
+      const { data: eventById } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .single();
+      if (!eventById) {
+        const { data: eventByCustomId } = await supabase
+          .from('events')
+          .select('id')
+          .eq('custom_event_id', eventId)
+          .single();
+        if (eventByCustomId) {
+          actualEventId = eventByCustomId.id;
+        }
+      }
+
       const { error } = await supabase
         .from('wishes')
         .delete()
         .eq('id', payload.wishId)
-        .eq('event_id', eventId);
+        .eq('event_id', actualEventId);
 
       if (error) throw error;
 
@@ -611,11 +672,29 @@ export class WishMessageHandlerService {
     console.log('🔄 Refreshing wishes for event:', eventId);
     
     try {
+      // Resolve eventId to actual UUID before querying
+      let actualEventId = eventId;
+      const { data: eventById } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .single();
+      if (!eventById) {
+        const { data: eventByCustomId } = await supabase
+          .from('events')
+          .select('id')
+          .eq('custom_event_id', eventId)
+          .single();
+        if (eventByCustomId) {
+          actualEventId = eventByCustomId.id;
+        }
+      }
+
       // Only fetch approved wishes for guest templates
       const { data: wishesFromDB, error } = await supabase
         .from('wishes')
         .select('*')
-        .eq('event_id', eventId)
+        .eq('event_id', actualEventId)
         .eq('is_approved', true)  // Only approved wishes for guest view
         .order('created_at', { ascending: false });
 
