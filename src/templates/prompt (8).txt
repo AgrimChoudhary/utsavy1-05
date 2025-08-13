@@ -11906,53 +11906,83 @@ export const useWishes = () => {
     
     setIsSubmitting(true);
     try {
-      console.log('Submitting wish:', { content, guestId, guestName, hasImage: !!imageFile });
+      console.log('Submitting wish via message handler:', { content, guestId, guestName, hasImage: !!imageFile });
       
-      let imageUrl = null;
+      // Convert image to base64 if present
+      let imageData = null;
+      let imageType = null;
       if (imageFile) {
-        console.log('Uploading image file:', imageFile.name, 'Size:', imageFile.size);
-        imageUrl = await uploadImage(imageFile, guestId);
-        if (!imageUrl) {
-          toast({
-            title: "Image upload failed",
-            description: "Could not upload image, but wish will be submitted without it.",
-            variant: "destructive",
-          });
-        } else {
-          console.log('Image uploaded with URL:', imageUrl);
-        }
+        console.log('Converting image to base64:', imageFile.name, 'Size:', imageFile.size);
+        const reader = new FileReader();
+        imageData = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Remove data URL prefix to get just the base64 data
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(imageFile);
+        });
+        imageType = imageFile.type;
+        console.log('Image converted to base64, type:', imageType);
       }
 
+      // Send message to parent window using the wish message handler
       const wishData = {
         guest_id: guestId,
         guest_name: guestName,
         content: content.trim(),
-        image_url: imageUrl,
-        is_approved: false // Requires host approval
+        image_data: imageData,
+        image_type: imageType
       };
 
-      console.log('Inserting wish with data:', wishData);
+      console.log('Sending SUBMIT_NEW_WISH message with data:', wishData);
 
-      const { data, error } = await supabase
-        .from('wishes')
-        .insert(wishData)
-        .select()
-        .single();
+      return new Promise<boolean>((resolve) => {
+        // Listen for response
+        const handleResponse = (event: MessageEvent) => {
+          if (event.data?.type === 'WISH_SUBMITTED_SUCCESS') {
+            console.log('Wish submitted successfully:', event.data.payload);
+            window.removeEventListener('message', handleResponse);
+            toast({
+              title: "✨ Wish Submitted!",
+              description: "Your wish has been submitted and is pending approval.",
+            });
+            // Refresh wishes list
+            fetchWishes();
+            resolve(true);
+          } else if (event.data?.type === 'ERROR' && event.data?.payload?.error) {
+            console.error('Error submitting wish:', event.data.payload.error);
+            window.removeEventListener('message', handleResponse);
+            toast({
+              title: "Failed to submit wish",
+              description: event.data.payload.error,
+              variant: "destructive",
+            });
+            resolve(false);
+          }
+        };
 
-      if (error) {
-        console.error('Error submitting wish:', error);
-        throw error;
-      }
+        window.addEventListener('message', handleResponse);
 
-      console.log('Wish submitted successfully:', data);
+        // Send the message
+        window.parent.postMessage({
+          type: 'SUBMIT_NEW_WISH',
+          payload: wishData
+        }, '*');
 
-      toast({
-        title: "✨ Wish Submitted!",
-        description: "Your heartfelt wish has been submitted and is awaiting approval.",
-        duration: 4000,
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          window.removeEventListener('message', handleResponse);
+          toast({
+            title: "Request timeout",
+            description: "The request took too long. Please try again.",
+            variant: "destructive",
+          });
+          resolve(false);
+        }, 10000);
       });
-
-      return true;
     } catch (error) {
       console.error('Error submitting wish:', error);
       toast({
