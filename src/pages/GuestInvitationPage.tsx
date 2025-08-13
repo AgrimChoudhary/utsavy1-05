@@ -420,9 +420,10 @@ const GuestInvitationPage = () => {
             setGuest(updatedGuest);
             
             // Also send updated status to template for immediate UI update
-            const updatedStatus = updatedGuest.accepted && updatedGuest.rsvp_data ? 'submitted' : 
-                                updatedGuest.accepted ? 'accepted' : 
-                                updatedGuest.viewed ? 'viewed' : 'pending';
+            const updatedStatus: 'pending' | 'viewed' | 'accepted' | 'submitted' =
+              updatedGuest.accepted && updatedGuest.rsvp_data ? 'submitted' : 
+              updatedGuest.accepted ? 'accepted' : 
+              updatedGuest.viewed ? 'viewed' : 'pending';
             
             if (iframe && iframe.contentWindow && event) {
               const statusTargetOrigin = getTemplateBaseUrl(event.templates);
@@ -430,8 +431,8 @@ const GuestInvitationPage = () => {
                 type: 'STATUS_UPDATE',
                 data: {
                   status: updatedStatus,
-                  showAcceptButton: !updatedGuest.accepted,
-                  showSubmitButton: updatedGuest.accepted && !updatedGuest.rsvp_data,
+                  showAcceptButton: updatedStatus === 'pending' || updatedStatus === 'viewed',
+                  showSubmitButton: updatedStatus === 'accepted' && !(updatedGuest.rsvp_data),
                   guestAccepted: updatedGuest.accepted,
                   hasRsvpData: !!updatedGuest.rsvp_data
                 }
@@ -806,8 +807,9 @@ const GuestInvitationPage = () => {
           // RSVP Contract Fields (flat at top level)
           eventId: eventId,
           guestId: guestId,
-          status: enhancedGuestStatus === 'pending' ? null : enhancedGuestStatus === 'submitted' ? 'submitted' : 'accepted',
-          showAcceptButton: enhancedGuestStatus === 'pending',
+          // Send explicit status including 'viewed' so template can show Accept button
+          status: enhancedGuestStatus,
+          showAcceptButton: enhancedGuestStatus === 'pending' || enhancedGuestStatus === 'viewed',
           showSubmitButton: enhancedGuestStatus === 'accepted' && (event.customFields || []).length > 0,
           showEditButton: enhancedGuestStatus === 'submitted' && (event.allow_rsvp_edit || false),
           rsvpFields: event.customFields || [],
