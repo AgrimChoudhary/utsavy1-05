@@ -60,7 +60,7 @@ export class WishMessageHandlerService {
     console.log('🔍 PLATFORM: Full event data:', JSON.stringify(event.data, null, 2));
     
     // Security check - verify origin
-    if (!event.origin || (!event.origin.includes('localhost') && !event.origin.includes('127.0.0.1') && !event.origin.includes('vercel.app'))) {
+    if (!event.origin || (!event.origin.includes('localhost') && !event.origin.includes('127.0.0.1') && !event.origin.includes('vercel.app') && !event.origin.includes('lovable.app'))) {
       console.warn('🚨 PLATFORM: Unauthorized origin for wish message:', event.origin);
       return;
     }
