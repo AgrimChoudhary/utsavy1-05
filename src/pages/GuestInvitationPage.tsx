@@ -845,6 +845,12 @@ const GuestInvitationPage = () => {
         console.log('   - Show Edit Button:', enhancedGuestStatus === 'submitted' && (event.allow_rsvp_edit || false));
         console.log('   - RSVP Fields Count:', (event.customFields || []).length);
         console.log('   - Existing RSVP Data:', guest.rsvp_data);
+        console.log('🔧 DEBUG - allow_rsvp_edit value:', {
+          allow_rsvp_edit: event.allow_rsvp_edit,
+          allow_rsvp_edit_type: typeof event.allow_rsvp_edit,
+          allow_rsvp_edit_boolean: Boolean(event.allow_rsvp_edit),
+          final_showEditButton: enhancedGuestStatus === 'submitted' && (event.allow_rsvp_edit || false)
+        });
         console.log('🔑 Guest Access Data:', guestEventAccess);
         console.log('=====================================');
         
