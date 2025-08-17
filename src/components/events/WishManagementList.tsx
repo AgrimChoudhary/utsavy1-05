@@ -291,9 +291,10 @@ export function WishManagementList({ eventId }: { eventId: string }) {
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="management" className="mt-6">
-          <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1">
-            <Card>
+        <TabsContent value="management" className="mt-8">
+          <div className="pt-6 pb-2 px-1">
+            <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-lg">
+              <Card className="border-0 bg-transparent">
               <CardHeader className="pb-4 pt-6">
                 <CardTitle className="text-lg">Guest Wishes</CardTitle>
                 <p className="text-sm text-muted-foreground">
@@ -407,53 +408,56 @@ export function WishManagementList({ eventId }: { eventId: string }) {
                   )}
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </div>
           </div>
         </TabsContent>
         
-        <TabsContent value="visibility" className="mt-6">
-          <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1">
-            <Card>
-              <CardHeader className="pb-4 pt-6">
-                <CardTitle className="text-lg">Wishes Visibility Settings</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Control whether guests can see and submit wishes on their invitation
-                </p>
-              </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
-                  <div className="space-y-1">
-                    <h3 className="font-medium text-sm sm:text-base">Show Wishes Section</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      When enabled, guests can view and submit wishes on their invitation page
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="wishes-enabled"
-                      checked={wishesEnabled}
-                      onCheckedChange={(checked) => handleToggleWishes(checked === true)}
-                      aria-label="Toggle wishes section visibility"
-                    />
-                    <Label htmlFor="wishes-enabled" className="text-sm font-medium">
-                      {wishesEnabled ? 'Enabled' : 'Disabled'}
-                    </Label>
-                  </div>
-                </div>
-                
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <div className="text-blue-600 mt-0.5">ℹ️</div>
-                    <div className="text-xs sm:text-sm text-blue-800">
-                      <strong>Note:</strong> When disabled, the wishes section will be hidden from all guest invitation pages. 
-                      Existing wishes will remain in your management panel and can be re-enabled at any time.
+        <TabsContent value="visibility" className="mt-8">
+          <div className="pt-6 pb-2 px-1">
+            <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-lg">
+              <Card className="border-0 bg-transparent">
+                <CardHeader className="pb-4 pt-6">
+                  <CardTitle className="text-lg">Wishes Visibility Settings</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Control whether guests can see and submit wishes on their invitation
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                      <div className="space-y-1">
+                        <h3 className="font-medium text-sm sm:text-base">Show Wishes Section</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          When enabled, guests can view and submit wishes on their invitation page
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="wishes-enabled"
+                          checked={wishesEnabled}
+                          onCheckedChange={(checked) => handleToggleWishes(checked === true)}
+                          aria-label="Toggle wishes section visibility"
+                        />
+                        <Label htmlFor="wishes-enabled" className="text-sm font-medium">
+                          {wishesEnabled ? 'Enabled' : 'Disabled'}
+                        </Label>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <div className="text-blue-600 mt-0.5">ℹ️</div>
+                        <div className="text-xs sm:text-sm text-blue-800">
+                          <strong>Note:</strong> When disabled, the wishes section will be hidden from all guest invitation pages. 
+                          Existing wishes will remain in your management panel and can be re-enabled at any time.
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
