@@ -164,7 +164,6 @@ export const RSVPSettingsContent = ({ event, onSave, isSaving, onCancel }: RSVPS
   // Parse current RSVP config from event
   const getCurrentRsvpConfig = (): RSVPConfig => {
     console.log('[RSVPSettings] Raw event.rsvp_config:', event.rsvp_config);
-    console.log('[RSVPSettings] Raw event.allow_rsvp_edit:', event.allow_rsvp_edit);
     
     try {
       if (!event.rsvp_config) {
@@ -188,13 +187,6 @@ export const RSVPSettingsContent = ({ event, onSave, isSaving, onCancel }: RSVPS
       // Validate object structure
       if (typeof config === 'object' && config !== null && 'type' in config) {
         const validConfig = config as RSVPConfig;
-        
-        // Use allow_rsvp_edit from database if available, otherwise use from config
-        if (event.allow_rsvp_edit !== null && event.allow_rsvp_edit !== undefined) {
-          validConfig.allowEditAfterSubmit = event.allow_rsvp_edit;
-          console.log('[RSVPSettings] Using allow_rsvp_edit from database:', event.allow_rsvp_edit);
-        }
-        
         console.log('[RSVPSettings] Valid RSVP config found:', validConfig);
         return validConfig;
       }
@@ -258,11 +250,8 @@ export const RSVPSettingsContent = ({ event, onSave, isSaving, onCancel }: RSVPS
       // Update local state immediately for optimistic UI
       setCurrentRsvpType(values.rsvp_type);
       
-      // Save to database - update both rsvp_config and allow_rsvp_edit
-      await onSave({ 
-        rsvp_config: rsvpConfig,
-        allow_rsvp_edit: values.showEditButton ?? true
-      });
+      // Save to database
+      await onSave({ rsvp_config: rsvpConfig });
       
       console.log('[RSVPSettings] Save completed successfully');
       
@@ -278,34 +267,9 @@ export const RSVPSettingsContent = ({ event, onSave, isSaving, onCancel }: RSVPS
     }
   };
 
-  const handleCustomFieldsChange = async (newFields: RSVPField[]) => {
+  const handleCustomFieldsChange = (newFields: RSVPField[]) => {
     setCustomFields(newFields);
     refetchFields();
-    
-    // Auto-save RSVP config when custom fields change to preserve allow_rsvp_edit setting
-    if (currentRsvpType === 'detailed') {
-      try {
-        const currentFormValues = form.getValues();
-        const rsvpConfig = {
-          type: 'detailed',
-          hasCustomFields: newFields.length > 0,
-          customFields: newFields,
-          allowEditAfterSubmit: currentFormValues.showEditButton ?? true
-        };
-        
-        console.log('[RSVPSettings] Auto-saving RSVP config after custom fields change:', rsvpConfig);
-        
-        await onSave({ 
-          rsvp_config: rsvpConfig,
-          allow_rsvp_edit: currentFormValues.showEditButton ?? true
-        });
-        
-        console.log('[RSVPSettings] Auto-save completed successfully');
-      } catch (error) {
-        console.error('[RSVPSettings] Auto-save failed:', error);
-        // Don't show error toast for auto-save, just log it
-      }
-    }
   };
 
   console.log('[RSVPSettings] Rendering form with currentRsvpType:', currentRsvpType);

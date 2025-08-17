@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from '@/hooks/use-is-mobile';
 import { CountryCodeSelect } from '@/components/auth/CountryCodeSelect';
@@ -109,35 +110,6 @@ export const GuestManagement = ({ eventId }: GuestManagementProps) => {
     enabled: !!eventId,
   });
 
-  // Wish section visibility toggle (host-controlled)
-  const [wishesEnabled, setWishesEnabled] = useState<boolean>(true);
-
-  useEffect(() => {
-    if (eventData && (eventData as any).wishes_enabled !== undefined) {
-      setWishesEnabled(Boolean((eventData as any).wishes_enabled));
-    }
-  }, [eventData]);
-
-  const handleToggleWishes = async (next: boolean) => {
-    setWishesEnabled(next);
-    const { error } = await supabase
-      .from('events')
-      .update({ wishes_enabled: next })
-      .eq('id', eventId);
-    if (error) {
-      setWishesEnabled(!next);
-      toast({
-        title: 'Update failed',
-        description: 'Could not update wish section visibility',
-        variant: 'destructive',
-      });
-    } else {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
-      toast({
-        title: next ? 'Wish section enabled' : 'Wish section disabled',
-      });
-    }
-  };
 
   // Fetch guests for this event
   const { data: guests, isLoading } = useQuery({
@@ -1216,21 +1188,6 @@ We look forward to celebrating with you!`;
         <CardTitle>Guest Management</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Wishes visibility section */}
-        <div className="flex items-center justify-between border rounded-md p-3 mb-4">
-          <h3 className="text-sm font-medium">Show Wishes Section</h3>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="wishes-enabled"
-              checked={wishesEnabled}
-              onCheckedChange={(checked) => handleToggleWishes(checked === true)}
-              aria-label="Toggle wishes section visibility"
-            />
-            <Label htmlFor="wishes-enabled" className="text-sm">
-              {wishesEnabled ? 'On' : 'Off'}
-            </Label>
-          </div>
-        </div>
         {isDetailedRSVP ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">

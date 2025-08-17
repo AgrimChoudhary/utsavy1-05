@@ -3,8 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useQueryClient } from "@tanstack/react-query";
 import WishActionsMenu from "@/components/wishes/WishActionsMenu";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Wish {
   id: string;
@@ -21,6 +27,11 @@ interface Wish {
 export function WishManagementList({ eventId }: { eventId: string }) {
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [loading, setLoading] = useState(false);
+  const [wishesEnabled, setWishesEnabled] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<'management' | 'visibility'>('management');
+  
+  const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
 
   const sortedWishes = useMemo(
     () => [...wishes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
@@ -71,6 +82,46 @@ export function WishManagementList({ eventId }: { eventId: string }) {
       toast({ title: "Error", description: "Failed to load wishes", variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEventData = async () => {
+    try {
+      const { data: eventData, error } = await supabase
+        .from('events')
+        .select('wishes_enabled')
+        .eq('id', eventId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (eventData && eventData.wishes_enabled !== undefined) {
+        setWishesEnabled(Boolean(eventData.wishes_enabled));
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch event data:", err);
+    }
+  };
+
+  const handleToggleWishes = async (next: boolean) => {
+    setWishesEnabled(next);
+    const { error } = await supabase
+      .from('events')
+      .update({ wishes_enabled: next })
+      .eq('id', eventId);
+    if (error) {
+      setWishesEnabled(!next);
+      toast({
+        title: 'Update failed',
+        description: 'Could not update wish section visibility',
+        variant: 'destructive',
+      });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      toast({
+        title: 'Wishes visibility updated',
+        description: `Wishes section is now ${next ? 'visible' : 'hidden'} to guests`,
+      });
     }
   };
 
@@ -161,6 +212,7 @@ export function WishManagementList({ eventId }: { eventId: string }) {
   useEffect(() => {
     if (!eventId) return;
     fetchWishes();
+    fetchEventData();
 
     const channel = supabase
       .channel(`wishes-${eventId}`)
@@ -217,68 +269,186 @@ export function WishManagementList({ eventId }: { eventId: string }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Wishes</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 text-xs sm:text-sm">
-            <Badge variant="outline">Total {wishes.length}</Badge>
-            <Badge variant="outline">Approved {approvedCount}</Badge>
-            <Badge variant="outline">Pending {pendingCount}</Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={testDatabaseConnection}>
-              🧪 Test DB
-            </Button>
-            <Button size="sm" variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
-            <Button size="sm" variant={statusFilter === 'approved' ? 'default' : 'outline'} onClick={() => setStatusFilter('approved')}>Approved</Button>
-            <Button size="sm" variant={statusFilter === 'pending' ? 'default' : 'outline'} onClick={() => setStatusFilter('pending')}>Pending</Button>
-          </div>
-        </div>
-        {loading ? (
-          <div className="text-sm text-muted-foreground">Loading wishes…</div>
-        ) : sortedWishes.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No wishes yet.</div>
-        ) : (
-          <div className="divide-y">
-            {filteredWishes.map((wish) => (
-              <div key={wish.id} className="flex items-start justify-between py-3 gap-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium truncate">{wish.guest_name}</span>
-                    {wish.is_approved ? (
-                      <Badge variant="secondary">Approved</Badge>
-                    ) : (
-                      <Badge variant="outline">Pending</Badge>
-                    )}
-                    {wish.likes_count > 0 && (
-                      <Badge variant="outline">{wish.likes_count} likes</Badge>
-                    )}
-                    {wish.photo_url && (
-                      <Badge variant="outline">Photo</Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1 break-words whitespace-pre-wrap">
-                    {wish.wish_text}
+    <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'management' | 'visibility')} className="w-full">
+        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1 h-auto' : 'grid-cols-2'}`}>
+          <TabsTrigger 
+            value="management" 
+            className={`${isMobile ? 'w-full mb-1' : ''} flex items-center justify-center gap-2`}
+          >
+            <span>Wish Management</span>
+            <Badge variant="secondary" className="text-xs">
+              {wishes.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="visibility" 
+            className={`${isMobile ? 'w-full' : ''} flex items-center justify-center gap-2`}
+          >
+            {wishesEnabled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            <span>Visibility Settings</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="management" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Guest Wishes</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Review and manage wishes submitted by your guests
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Stats Section */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="text-center p-2 sm:p-3 bg-muted/50 rounded-lg">
+                  <div className="text-lg sm:text-xl font-semibold">{wishes.length}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Total</div>
+                </div>
+                <div className="text-center p-2 sm:p-3 bg-green-50 rounded-lg">
+                  <div className="text-lg sm:text-xl font-semibold text-green-600">{approvedCount}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Approved</div>
+                </div>
+                <div className="text-center p-2 sm:p-3 bg-yellow-50 rounded-lg">
+                  <div className="text-lg sm:text-xl font-semibold text-yellow-600">{pendingCount}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Pending</div>
+                </div>
+              </div>
+
+              {/* Filter Section */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Button 
+                    size="sm" 
+                    variant={statusFilter === 'all' ? 'default' : 'outline'} 
+                    onClick={() => setStatusFilter('all')}
+                    className="text-xs sm:text-sm"
+                  >
+                    All
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={statusFilter === 'approved' ? 'default' : 'outline'} 
+                    onClick={() => setStatusFilter('approved')}
+                    className="text-xs sm:text-sm"
+                  >
+                    Approved
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={statusFilter === 'pending' ? 'default' : 'outline'} 
+                    onClick={() => setStatusFilter('pending')}
+                    className="text-xs sm:text-sm"
+                  >
+                    Pending
+                  </Button>
+                </div>
+                <Button size="sm" variant="outline" onClick={testDatabaseConnection} className="text-xs">
+                  🧪 Test DB
+                </Button>
+              </div>
+
+              {/* Wishes List */}
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                  <div className="text-sm text-muted-foreground">Loading wishes…</div>
+                </div>
+              ) : sortedWishes.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-sm text-muted-foreground">No wishes yet.</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Wishes will appear here when guests submit them
                   </p>
                 </div>
-
-                <WishActionsMenu
-                  isApproved={wish.is_approved}
-                  hasPhoto={!!wish.photo_url}
-                  onApprove={() => approveWish(wish.id)}
-                  onDelete={() => deleteWish(wish.id)}
-                  onViewPhoto={() => viewPhoto(wish.photo_url)}
-                  onCopyText={() => copyText(wish.wish_text)}
-                />
+              ) : (
+                <div className="space-y-3">
+                  {filteredWishes.map((wish) => (
+                    <div key={wish.id} className="border rounded-lg p-3 sm:p-4 bg-card">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className="font-medium text-sm sm:text-base truncate">{wish.guest_name}</span>
+                            {wish.is_approved ? (
+                              <Badge variant="secondary" className="text-xs">Approved</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">Pending</Badge>
+                            )}
+                            {wish.likes_count > 0 && (
+                              <Badge variant="outline" className="text-xs">{wish.likes_count} likes</Badge>
+                            )}
+                            {wish.photo_url && (
+                              <Badge variant="outline" className="text-xs">Photo</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap leading-relaxed">
+                            {wish.wish_text}
+                          </p>
+                        </div>
+                        <div className="shrink-0">
+                          <WishActionsMenu
+                            isApproved={wish.is_approved}
+                            hasPhoto={!!wish.photo_url}
+                            onApprove={() => approveWish(wish.id)}
+                            onDelete={() => deleteWish(wish.id)}
+                            onViewPhoto={() => viewPhoto(wish.photo_url)}
+                            onCopyText={() => copyText(wish.wish_text)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="visibility" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Wishes Visibility Settings</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Control whether guests can see and submit wishes on their invitation
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                  <div className="space-y-1">
+                    <h3 className="font-medium text-sm sm:text-base">Show Wishes Section</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      When enabled, guests can view and submit wishes on their invitation page
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="wishes-enabled"
+                      checked={wishesEnabled}
+                      onCheckedChange={(checked) => handleToggleWishes(checked === true)}
+                      aria-label="Toggle wishes section visibility"
+                    />
+                    <Label htmlFor="wishes-enabled" className="text-sm font-medium">
+                      {wishesEnabled ? 'Enabled' : 'Disabled'}
+                    </Label>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <div className="text-blue-600 mt-0.5">ℹ️</div>
+                    <div className="text-xs sm:text-sm text-blue-800">
+                      <strong>Note:</strong> When disabled, the wishes section will be hidden from all guest invitation pages. 
+                      Existing wishes will remain in your management panel and can be re-enabled at any time.
+                    </div>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
