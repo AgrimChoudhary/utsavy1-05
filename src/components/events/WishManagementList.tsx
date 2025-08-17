@@ -208,15 +208,15 @@ export function WishManagementList({ eventId }: { eventId: string }) {
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="management" className="mt-4 flex-1 min-h-0">
+        <TabsContent value="management" className="mt-2 flex-1 min-h-0">
           <Card className="h-full flex flex-col">
-            <CardHeader className="pb-3 shrink-0">
+            <CardHeader className="pb-2 pt-3 shrink-0">
               <CardTitle className="text-base sm:text-lg">Guest Wishes</CardTitle>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Review and manage wishes submitted by your guests
               </p>
             </CardHeader>
-            <CardContent className="space-y-4 flex-1 min-h-0 flex flex-col">
+            <CardContent className="space-y-3 flex-1 min-h-0 flex flex-col pt-2">
               {/* Stats Section */}
               <div className="grid grid-cols-3 gap-2 shrink-0">
                 <div className="text-center p-2 bg-muted/50 rounded-lg">
@@ -326,15 +326,15 @@ export function WishManagementList({ eventId }: { eventId: string }) {
           </Card>
         </TabsContent>
         
-        <TabsContent value="visibility" className="mt-4 flex-1">
+        <TabsContent value="visibility" className="mt-2 flex-1">
           <Card className="h-full">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2 pt-3">
               <CardTitle className="text-base sm:text-lg">Wishes Visibility Settings</CardTitle>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Control whether guests can see and submit wishes on their invitation
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-2">
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-3 sm:p-4 border rounded-lg bg-muted/30">
                   <div className="space-y-1 flex-1 min-w-0">
