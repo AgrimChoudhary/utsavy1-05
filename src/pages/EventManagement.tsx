@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useTemplateCache } from '@/hooks/useTemplateCache';
 import { useSimpleEventStats } from '@/hooks/useSimpleEventStats';
+import { shouldShowWishesForEvent } from '@/utils/templateWishesSupport';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users, Edit, Settings, MoreVertical, MessageSquare, UserCheck, MessageCircle, Calendar, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -190,6 +191,9 @@ const EventManagement = () => {
 
   const details = event.details as Record<string, any>;
 
+  // Check if current event's template supports wishes functionality
+  const showWishManagement = shouldShowWishesForEvent(event, getTemplateById);
+
   // If in editing mode, show the EventForm
   if (isEditing) {
     return (
@@ -302,13 +306,15 @@ const EventManagement = () => {
                     <Users className="mr-2 h-4 w-4" />
                     <span>Guest Event Access</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => { setIsWishDialogOpen(true); setIsDropdownOpen(false); }}
-                    className="cursor-pointer"
-                  >
-                    <Heart className="mr-2 h-4 w-4" />
-                    <span>Wish Management</span>
-                  </DropdownMenuItem>
+                  {showWishManagement && (
+                    <DropdownMenuItem 
+                      onClick={() => { setIsWishDialogOpen(true); setIsDropdownOpen(false); }}
+                      className="cursor-pointer"
+                    >
+                      <Heart className="mr-2 h-4 w-4" />
+                      <span>Wish Management</span>
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               
@@ -325,18 +331,20 @@ const EventManagement = () => {
         </div>
       </header>
 
-      {/* Wish Management Dialog */}
-      <Dialog open={isWishDialogOpen} onOpenChange={setIsWishDialogOpen}>
-        <DialogContent aria-describedby="wish-dialog-description">
-          <DialogHeader>
-            <DialogTitle>Wish Management</DialogTitle>
-            <DialogDescription id="wish-dialog-description">
-              Review, approve, and delete guest wishes for this event.
-            </DialogDescription>
-          </DialogHeader>
-          <WishManagementList eventId={eventId} />
-        </DialogContent>
-      </Dialog>
+      {/* Wish Management Dialog - Only show for templates that support wishes */}
+      {showWishManagement && (
+        <Dialog open={isWishDialogOpen} onOpenChange={setIsWishDialogOpen}>
+          <DialogContent aria-describedby="wish-dialog-description">
+            <DialogHeader>
+              <DialogTitle>Wish Management</DialogTitle>
+              <DialogDescription id="wish-dialog-description">
+                Review, approve, and delete guest wishes for this event.
+              </DialogDescription>
+            </DialogHeader>
+            <WishManagementList eventId={eventId} />
+          </DialogContent>
+        </Dialog>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
