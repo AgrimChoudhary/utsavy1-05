@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useQueryClient } from "@tanstack/react-query";
 import WishActionsMenu from "@/components/wishes/WishActionsMenu";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Filter } from "lucide-react";
 
 interface Wish {
   id: string;
@@ -125,89 +126,6 @@ export function WishManagementList({ eventId }: { eventId: string }) {
     }
   };
 
-  const testDatabaseConnection = async () => {
-    try {
-      console.log('🧪 Testing database connection...');
-      const sb: any = supabase as any;
-      
-      // Test 0: Check authentication
-      console.log('🔐 Checking authentication...');
-      const { data: { user }, error: authError } = await sb.auth.getUser();
-      console.log('📊 Auth test result:', { user: user?.id, authError });
-      
-      if (authError || !user) {
-        toast({ 
-          title: "Authentication Error", 
-          description: "User not authenticated. Please login again.", 
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // Test 1: Check if wishes table exists
-      console.log('🔍 Testing if wishes table exists...');
-      const { data: tableTest, error: tableError } = await sb
-        .from("wishes")
-        .select("count")
-        .limit(1);
-      
-      console.log('📊 Table test result:', { tableTest, tableError });
-      
-      // Test 2: Check total wishes count
-      console.log('🔍 Testing total wishes count...');
-      const { count, error: countError } = await sb
-        .from("wishes")
-        .select("*", { count: 'exact', head: true });
-      
-      console.log('📊 Count test result:', { count, countError });
-      
-      // Test 3: Check wishes for specific event
-      console.log('🔍 Testing wishes for event:', eventId);
-      const { data: eventWishes, error: eventError } = await sb
-        .from("wishes")
-        .select("id,event_id,guest_name,wish_text")
-        .eq("event_id", eventId)
-        .limit(5);
-      
-      console.log('📊 Event wishes test result:', { eventWishes, eventError, count: eventWishes?.length || 0 });
-      
-      // Test 4: Check RLS policies by trying to insert a test wish
-      console.log('🔍 Testing RLS policies...');
-      const testWish = {
-        event_id: eventId,
-        guest_name: "Test User",
-        wish_text: "Test wish for debugging",
-        is_approved: false
-      };
-      
-      const { data: insertTest, error: insertError } = await sb
-        .from("wishes")
-        .insert(testWish)
-        .select()
-        .single();
-      
-      console.log('📊 Insert test result:', { insertTest, insertError });
-      
-      // Clean up test data
-      if (insertTest) {
-        await sb.from("wishes").delete().eq("id", insertTest.id);
-        console.log('🧹 Test wish cleaned up');
-      }
-      
-      toast({ 
-        title: "Database Test Complete", 
-        description: `Auth: ${!!user}, Table: ${!tableError}, Total: ${count || 0}, Event: ${eventWishes?.length || 0}, Insert: ${!insertError}` 
-      });
-      
-    } catch (err: any) {
-      console.error('❌ Database test failed:', err);
-      toast({ 
-        title: "Database Test Failed", 
-        description: err.message, 
-        variant: "destructive" 
-      });
-    }
-  };
 
   useEffect(() => {
     if (!eventId) return;
@@ -316,36 +234,38 @@ export function WishManagementList({ eventId }: { eventId: string }) {
               </div>
 
               {/* Filter Section */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <Button 
-                    size="sm" 
-                    variant={statusFilter === 'all' ? 'default' : 'outline'} 
-                    onClick={() => setStatusFilter('all')}
-                    className="text-xs sm:text-sm"
-                  >
-                    All
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={statusFilter === 'approved' ? 'default' : 'outline'} 
-                    onClick={() => setStatusFilter('approved')}
-                    className="text-xs sm:text-sm"
-                  >
-                    Approved
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={statusFilter === 'pending' ? 'default' : 'outline'} 
-                    onClick={() => setStatusFilter('pending')}
-                    className="text-xs sm:text-sm"
-                  >
-                    Pending
-                  </Button>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm text-muted-foreground">
+                  Showing {filteredWishes.length} of {wishes.length} wishes
                 </div>
-                <Button size="sm" variant="outline" onClick={testDatabaseConnection} className="text-xs">
-                  🧪 Test DB
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <Filter className="h-3 w-3" />
+                      <span className="capitalize">{statusFilter}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-32">
+                    <DropdownMenuItem 
+                      onClick={() => setStatusFilter('all')}
+                      className={statusFilter === 'all' ? 'bg-accent' : ''}
+                    >
+                      All ({wishes.length})
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setStatusFilter('approved')}
+                      className={statusFilter === 'approved' ? 'bg-accent' : ''}
+                    >
+                      Approved ({approvedCount})
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setStatusFilter('pending')}
+                      className={statusFilter === 'pending' ? 'bg-accent' : ''}
+                    >
+                      Pending ({pendingCount})
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Wishes List */}
@@ -362,7 +282,7 @@ export function WishManagementList({ eventId }: { eventId: string }) {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
                   {filteredWishes.map((wish) => (
                     <div key={wish.id} className="border rounded-lg p-3 sm:p-4 bg-card">
                       <div className="flex items-start justify-between gap-3">
