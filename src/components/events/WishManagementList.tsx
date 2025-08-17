@@ -10,7 +10,8 @@ import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useQueryClient } from "@tanstack/react-query";
 import WishActionsMenu from "@/components/wishes/WishActionsMenu";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Filter } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Wish {
   id: string;
@@ -290,128 +291,135 @@ export function WishManagementList({ eventId }: { eventId: string }) {
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="management" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Guest Wishes</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Review and manage wishes submitted by your guests
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Stats Section */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                <div className="text-center p-2 sm:p-3 bg-muted/50 rounded-lg">
-                  <div className="text-lg sm:text-xl font-semibold">{wishes.length}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">Total</div>
+        <TabsContent value="management" className="mt-6">
+          <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1">
+            <Card>
+              <CardHeader className="pb-4 pt-6">
+                <CardTitle className="text-lg">Guest Wishes</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Review and manage wishes submitted by your guests
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Stats Section */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <div className="text-center p-2 sm:p-3 bg-muted/50 rounded-lg">
+                    <div className="text-lg sm:text-xl font-semibold">{wishes.length}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Total</div>
+                  </div>
+                  <div className="text-center p-2 sm:p-3 bg-green-50 rounded-lg">
+                    <div className="text-lg sm:text-xl font-semibold text-green-600">{approvedCount}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Approved</div>
+                  </div>
+                  <div className="text-center p-2 sm:p-3 bg-yellow-50 rounded-lg">
+                    <div className="text-lg sm:text-xl font-semibold text-yellow-600">{pendingCount}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Pending</div>
+                  </div>
                 </div>
-                <div className="text-center p-2 sm:p-3 bg-green-50 rounded-lg">
-                  <div className="text-lg sm:text-xl font-semibold text-green-600">{approvedCount}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">Approved</div>
-                </div>
-                <div className="text-center p-2 sm:p-3 bg-yellow-50 rounded-lg">
-                  <div className="text-lg sm:text-xl font-semibold text-yellow-600">{pendingCount}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">Pending</div>
-                </div>
-              </div>
 
-              {/* Filter Section */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <Button 
-                    size="sm" 
-                    variant={statusFilter === 'all' ? 'default' : 'outline'} 
-                    onClick={() => setStatusFilter('all')}
-                    className="text-xs sm:text-sm"
-                  >
-                    All
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={statusFilter === 'approved' ? 'default' : 'outline'} 
-                    onClick={() => setStatusFilter('approved')}
-                    className="text-xs sm:text-sm"
-                  >
-                    Approved
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={statusFilter === 'pending' ? 'default' : 'outline'} 
-                    onClick={() => setStatusFilter('pending')}
-                    className="text-xs sm:text-sm"
-                  >
-                    Pending
-                  </Button>
+                {/* Filter Dropdown */}
+                <div className="flex items-center justify-between">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <Filter className="h-4 w-4" />
+                        <span className="text-xs sm:text-sm">
+                          {statusFilter === 'all' ? 'All Wishes' : 
+                           statusFilter === 'approved' ? 'Approved' : 'Pending'}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-40">
+                      <DropdownMenuItem onClick={() => setStatusFilter('all')}>
+                        <span className="text-sm">All Wishes</span>
+                        <Badge variant="outline" className="ml-auto text-xs">{wishes.length}</Badge>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter('approved')}>
+                        <span className="text-sm">Approved</span>
+                        <Badge variant="outline" className="ml-auto text-xs">{approvedCount}</Badge>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter('pending')}>
+                        <span className="text-sm">Pending</span>
+                        <Badge variant="outline" className="ml-auto text-xs">{pendingCount}</Badge>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <Button size="sm" variant="outline" onClick={testDatabaseConnection} className="text-xs">
-                  🧪 Test DB
-                </Button>
-              </div>
 
-              {/* Wishes List */}
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                  <div className="text-sm text-muted-foreground">Loading wishes…</div>
-                </div>
-              ) : sortedWishes.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-sm text-muted-foreground">No wishes yet.</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Wishes will appear here when guests submit them
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredWishes.map((wish) => (
-                    <div key={wish.id} className="border rounded-lg p-3 sm:p-4 bg-card">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <span className="font-medium text-sm sm:text-base truncate">{wish.guest_name}</span>
-                            {wish.is_approved ? (
-                              <Badge variant="secondary" className="text-xs">Approved</Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">Pending</Badge>
-                            )}
-                            {wish.likes_count > 0 && (
-                              <Badge variant="outline" className="text-xs">{wish.likes_count} likes</Badge>
-                            )}
-                            {wish.photo_url && (
-                              <Badge variant="outline" className="text-xs">Photo</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap leading-relaxed">
-                            {wish.wish_text}
-                          </p>
-                        </div>
-                        <div className="shrink-0">
-                          <WishActionsMenu
-                            isApproved={wish.is_approved}
-                            hasPhoto={!!wish.photo_url}
-                            onApprove={() => approveWish(wish.id)}
-                            onDelete={() => deleteWish(wish.id)}
-                            onViewPhoto={() => viewPhoto(wish.photo_url)}
-                            onCopyText={() => copyText(wish.wish_text)}
-                          />
-                        </div>
+                {/* Scrollable Wishes List */}
+                <div className="h-[400px] overflow-y-auto pr-2 space-y-3">
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                      <div className="text-sm text-muted-foreground">Loading wishes…</div>
+                    </div>
+                  ) : sortedWishes.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-sm text-muted-foreground">No wishes yet.</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Wishes will appear here when guests submit them
+                      </p>
+                    </div>
+                  ) : filteredWishes.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-sm text-muted-foreground">
+                        No {statusFilter} wishes found.
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    <>
+                      {filteredWishes.map((wish) => (
+                        <div key={wish.id} className="border rounded-lg p-3 sm:p-4 bg-card hover:bg-muted/50 transition-colors">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className="font-medium text-sm sm:text-base truncate">{wish.guest_name}</span>
+                                {wish.is_approved ? (
+                                  <Badge variant="secondary" className="text-xs">Approved</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs">Pending</Badge>
+                                )}
+                                {wish.likes_count > 0 && (
+                                  <Badge variant="outline" className="text-xs">{wish.likes_count} likes</Badge>
+                                )}
+                                {wish.photo_url && (
+                                  <Badge variant="outline" className="text-xs">Photo</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap leading-relaxed">
+                                {wish.wish_text}
+                              </p>
+                            </div>
+                            <div className="shrink-0">
+                              <WishActionsMenu
+                                isApproved={wish.is_approved}
+                                hasPhoto={!!wish.photo_url}
+                                onApprove={() => approveWish(wish.id)}
+                                onDelete={() => deleteWish(wish.id)}
+                                onViewPhoto={() => viewPhoto(wish.photo_url)}
+                                onCopyText={() => copyText(wish.wish_text)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
-        <TabsContent value="visibility" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Wishes Visibility Settings</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Control whether guests can see and submit wishes on their invitation
-              </p>
-            </CardHeader>
+        <TabsContent value="visibility" className="mt-6">
+          <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1">
+            <Card>
+              <CardHeader className="pb-4 pt-6">
+                <CardTitle className="text-lg">Wishes Visibility Settings</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Control whether guests can see and submit wishes on their invitation
+                </p>
+              </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
@@ -445,7 +453,8 @@ export function WishManagementList({ eventId }: { eventId: string }) {
                 </div>
               </div>
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
