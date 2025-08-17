@@ -126,89 +126,6 @@ export function WishManagementList({ eventId }: { eventId: string }) {
     }
   };
 
-  const testDatabaseConnection = async () => {
-    try {
-      console.log('🧪 Testing database connection...');
-      const sb: any = supabase as any;
-      
-      // Test 0: Check authentication
-      console.log('🔐 Checking authentication...');
-      const { data: { user }, error: authError } = await sb.auth.getUser();
-      console.log('📊 Auth test result:', { user: user?.id, authError });
-      
-      if (authError || !user) {
-        toast({ 
-          title: "Authentication Error", 
-          description: "User not authenticated. Please login again.", 
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // Test 1: Check if wishes table exists
-      console.log('🔍 Testing if wishes table exists...');
-      const { data: tableTest, error: tableError } = await sb
-        .from("wishes")
-        .select("count")
-        .limit(1);
-      
-      console.log('📊 Table test result:', { tableTest, tableError });
-      
-      // Test 2: Check total wishes count
-      console.log('🔍 Testing total wishes count...');
-      const { count, error: countError } = await sb
-        .from("wishes")
-        .select("*", { count: 'exact', head: true });
-      
-      console.log('📊 Count test result:', { count, countError });
-      
-      // Test 3: Check wishes for specific event
-      console.log('🔍 Testing wishes for event:', eventId);
-      const { data: eventWishes, error: eventError } = await sb
-        .from("wishes")
-        .select("id,event_id,guest_name,wish_text")
-        .eq("event_id", eventId)
-        .limit(5);
-      
-      console.log('📊 Event wishes test result:', { eventWishes, eventError, count: eventWishes?.length || 0 });
-      
-      // Test 4: Check RLS policies by trying to insert a test wish
-      console.log('🔍 Testing RLS policies...');
-      const testWish = {
-        event_id: eventId,
-        guest_name: "Test User",
-        wish_text: "Test wish for debugging",
-        is_approved: false
-      };
-      
-      const { data: insertTest, error: insertError } = await sb
-        .from("wishes")
-        .insert(testWish)
-        .select()
-        .single();
-      
-      console.log('📊 Insert test result:', { insertTest, insertError });
-      
-      // Clean up test data
-      if (insertTest) {
-        await sb.from("wishes").delete().eq("id", insertTest.id);
-        console.log('🧹 Test wish cleaned up');
-      }
-      
-      toast({ 
-        title: "Database Test Complete", 
-        description: `Auth: ${!!user}, Table: ${!tableError}, Total: ${count || 0}, Event: ${eventWishes?.length || 0}, Insert: ${!insertError}` 
-      });
-      
-    } catch (err: any) {
-      console.error('❌ Database test failed:', err);
-      toast({ 
-        title: "Database Test Failed", 
-        description: err.message, 
-        variant: "destructive" 
-      });
-    }
-  };
 
   useEffect(() => {
     if (!eventId) return;
@@ -271,27 +188,32 @@ export function WishManagementList({ eventId }: { eventId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Mobile Safe Area Header */}
+      <div className="pt-safe-top pt-16 sm:pt-4 md:pt-2" />
+      
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'management' | 'visibility')} className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1 h-auto' : 'grid-cols-2'}`}>
-          <TabsTrigger 
-            value="management" 
-            className={`${isMobile ? 'w-full mb-1' : ''} flex items-center justify-center gap-2`}
-          >
-            <span>Wish Management</span>
-            <Badge variant="secondary" className="text-xs">
-              {wishes.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="visibility" 
-            className={`${isMobile ? 'w-full' : ''} flex items-center justify-center gap-2`}
-          >
-            {wishesEnabled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-            <span>Visibility Settings</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-2">
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1 h-auto' : 'grid-cols-2'} mt-4`}>
+            <TabsTrigger 
+              value="management" 
+              className={`${isMobile ? 'w-full mb-1' : ''} flex items-center justify-center gap-2`}
+            >
+              <span>Wish Management</span>
+              <Badge variant="secondary" className="text-xs">
+                {wishes.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="visibility" 
+              className={`${isMobile ? 'w-full' : ''} flex items-center justify-center gap-2`}
+            >
+              {wishesEnabled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              <span>Visibility Settings</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
         
-        <TabsContent value="management" className="mt-8">
+        <TabsContent value="management" className="mt-4">
           <div className="pt-6 pb-2 px-1">
             <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-lg">
               <Card className="border-0 bg-transparent">
