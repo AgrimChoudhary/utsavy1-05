@@ -334,14 +334,16 @@ const EventManagement = () => {
       {/* Wish Management Dialog - Only show for templates that support wishes */}
       {showWishManagement && (
         <Dialog open={isWishDialogOpen} onOpenChange={setIsWishDialogOpen}>
-          <DialogContent aria-describedby="wish-dialog-description">
+          <DialogContent aria-describedby="wish-dialog-description" className="w-[90vw] max-w-3xl h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>Wish Management</DialogTitle>
               <DialogDescription id="wish-dialog-description">
                 Review, approve, and delete guest wishes for this event.
               </DialogDescription>
             </DialogHeader>
-            <WishManagementList eventId={eventId} />
+            <div className="flex-1 overflow-y-auto pr-1">
+              <WishManagementList eventId={eventId} />
+            </div>
           </DialogContent>
         </Dialog>
       )}

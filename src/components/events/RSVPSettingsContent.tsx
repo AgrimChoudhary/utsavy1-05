@@ -225,13 +225,16 @@ export const RSVPSettingsContent = ({ event, onSave, isSaving, onCancel }: RSVPS
 
     try {
       let rsvpConfig: RSVPConfig;
+      
+      // Determine the showEditButton value - for detailed type use checkbox, for simple type set to false
+      const showEditButtonValue = values.rsvp_type === 'detailed' ? (values.showEditButton ?? true) : false;
 
       if (values.rsvp_type === 'detailed') {
         rsvpConfig = {
           type: 'detailed',
           hasCustomFields: customFields.length > 0,
           customFields: customFields,
-          allowEditAfterSubmit: values.showEditButton ?? true
+          allowEditAfterSubmit: showEditButtonValue
         };
         console.log('[RSVPSettings] Creating detailed config:', rsvpConfig);
       } else {
@@ -246,12 +249,16 @@ export const RSVPSettingsContent = ({ event, onSave, isSaving, onCancel }: RSVPS
       rsvpConfig.type = values.rsvp_type;
       
       console.log('[RSVPSettings] Final config to save:', rsvpConfig);
+      console.log('[RSVPSettings] Setting allow_rsvp_edit to:', showEditButtonValue);
       
       // Update local state immediately for optimistic UI
       setCurrentRsvpType(values.rsvp_type);
       
-      // Save to database
-      await onSave({ rsvp_config: rsvpConfig });
+      // Save to database - include both rsvp_config and allow_rsvp_edit column
+      await onSave({ 
+        rsvp_config: rsvpConfig,
+        allow_rsvp_edit: showEditButtonValue 
+      });
       
       console.log('[RSVPSettings] Save completed successfully');
       
