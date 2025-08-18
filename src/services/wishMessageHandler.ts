@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { MESSAGE_TYPES } from '@/utils/iframeMessaging';
 import { toast } from '@/hooks/use-toast';
+import { uploadBase64ToStorage, migrateBase64ToStorage, isBase64DataUrl } from '@/utils/wishImageStorage';
 
 export interface WishSubmissionData {
   content: string;
@@ -209,12 +210,18 @@ export class WishMessageHandlerService {
         console.warn('💡 PLATFORM: Check wish management panel to approve pending wishes');
       }
       
-      // Transform database fields to match template expectations
-      // Only include fields that actually exist in database
-      const transformedWishes = (wishesFromDB || []).map(wish => {
+      // Transform database fields to match template expectations and migrate base64 images
+      const transformedWishes = await Promise.all((wishesFromDB || []).map(async wish => {
         // Validate required fields
         if (!wish.id || !wish.guest_name || !wish.wish_text) {
           console.warn('⚠️ PLATFORM: Wish missing required fields:', wish);
+        }
+        
+        // Migrate base64 images to storage if needed
+        let imageUrl = wish.photo_url;
+        if (imageUrl && isBase64DataUrl(imageUrl)) {
+          console.log('🔄 Migrating base64 image to storage for wish:', wish.id);
+          imageUrl = await migrateBase64ToStorage(imageUrl, actualEventId, wish.id);
         }
         
         return {
@@ -222,7 +229,7 @@ export class WishMessageHandlerService {
           guest_id: wish.guest_id,
           guest_name: wish.guest_name,
           content: wish.wish_text,           // Database: wish_text → Template: content
-          image_url: wish.photo_url,         // Database: photo_url → Template: image_url (can be null)
+          image_url: imageUrl,               // Storage URL instead of base64
           likes_count: wish.likes_count || 0,
           is_approved: wish.is_approved,
           created_at: wish.created_at
@@ -230,7 +237,7 @@ export class WishMessageHandlerService {
           // Removed: updated_at (doesn't exist in DB) 
           // Removed: hasLiked (doesn't exist in DB)
         };
-      });
+      }));
       
       console.log('🔄 PLATFORM: Transformed wishes for template:', transformedWishes?.length || 0);
       console.log('📊 PLATFORM: Sample transformed wish:', transformedWishes[0]);
@@ -290,20 +297,28 @@ export class WishMessageHandlerService {
 
       console.log('✅ Fetched all wishes for admin:', wishesFromDB?.length || 0);
       
-      // Transform database fields to match template expectations
-      // Only include fields that actually exist in database
-      const transformedWishes = (wishesFromDB || []).map(wish => ({
-        id: wish.id,
-        guest_id: wish.guest_id,
-        guest_name: wish.guest_name,
-        content: wish.wish_text,           // Database: wish_text → Template: content
-        image_url: wish.photo_url,         // Database: photo_url → Template: image_url (can be null)
-        likes_count: wish.likes_count || 0,
-        is_approved: wish.is_approved,
-        created_at: wish.created_at
-        // Removed: replies_count (doesn't exist in DB)
-        // Removed: updated_at (doesn't exist in DB) 
-        // Removed: hasLiked (doesn't exist in DB)
+      // Transform database fields to match template expectations and migrate base64 images
+      const transformedWishes = await Promise.all((wishesFromDB || []).map(async wish => {
+        // Migrate base64 images to storage if needed
+        let imageUrl = wish.photo_url;
+        if (imageUrl && isBase64DataUrl(imageUrl)) {
+          console.log('🔄 Migrating base64 image to storage for admin wish:', wish.id);
+          imageUrl = await migrateBase64ToStorage(imageUrl, eventId, wish.id);
+        }
+        
+        return {
+          id: wish.id,
+          guest_id: wish.guest_id,
+          guest_name: wish.guest_name,
+          content: wish.wish_text,           // Database: wish_text → Template: content
+          image_url: imageUrl,               // Storage URL instead of base64
+          likes_count: wish.likes_count || 0,
+          is_approved: wish.is_approved,
+          created_at: wish.created_at
+          // Removed: replies_count (doesn't exist in DB)
+          // Removed: updated_at (doesn't exist in DB) 
+          // Removed: hasLiked (doesn't exist in DB)
+        };
       }));
       
       console.log('👑 Transformed admin wishes:', transformedWishes?.length || 0);
@@ -411,13 +426,28 @@ export class WishMessageHandlerService {
 
       // Handle image if present
       if (payload.image_data) {
-        console.log('🖼️ Processing image upload...');
-        // Store as full data URL so templates can render directly
-        const mimeType = payload.image_type || 'image/jpeg';
-        const hasPrefix = payload.image_data.startsWith('data:');
-        wishData.photo_url = hasPrefix
-          ? payload.image_data
-          : `data:${mimeType};base64,${payload.image_data}`;
+        console.log('🖼️ Processing image upload to storage...');
+        
+        // Upload base64 image to Supabase storage
+        const uploadResult = await uploadBase64ToStorage(
+          payload.image_data,
+          actualEventId,
+          actualGuestId
+        );
+        
+        if (uploadResult.success && uploadResult.url) {
+          wishData.photo_url = uploadResult.url;
+          console.log('✅ Image uploaded to storage:', uploadResult.url);
+        } else {
+          console.error('❌ Failed to upload image to storage:', uploadResult.error);
+          // Fallback to base64 for backward compatibility
+          const mimeType = payload.image_type || 'image/jpeg';
+          const hasPrefix = payload.image_data.startsWith('data:');
+          wishData.photo_url = hasPrefix
+            ? payload.image_data
+            : `data:${mimeType};base64,${payload.image_data}`;
+          console.log('📦 Using base64 fallback for image storage');
+        }
       }
 
       console.log('📤 About to insert wish into database...');
@@ -738,20 +768,28 @@ export class WishMessageHandlerService {
 
       console.log('✅ Approved wishes refreshed from DB:', wishesFromDB?.length || 0);
       
-      // Transform database fields to match template expectations
-      // Only include fields that actually exist in database
-      const transformedWishes = (wishesFromDB || []).map(wish => ({
-        id: wish.id,
-        guest_id: wish.guest_id,
-        guest_name: wish.guest_name,
-        content: wish.wish_text,           // Database: wish_text → Template: content
-        image_url: wish.photo_url,         // Database: photo_url → Template: image_url (can be null)
-        likes_count: wish.likes_count || 0,
-        is_approved: wish.is_approved,
-        created_at: wish.created_at
-        // Removed: replies_count (doesn't exist in DB)
-        // Removed: updated_at (doesn't exist in DB) 
-        // Removed: hasLiked (doesn't exist in DB)
+      // Transform database fields to match template expectations and migrate base64 images
+      const transformedWishes = await Promise.all((wishesFromDB || []).map(async wish => {
+        // Migrate base64 images to storage if needed
+        let imageUrl = wish.photo_url;
+        if (imageUrl && isBase64DataUrl(imageUrl)) {
+          console.log('🔄 Migrating base64 image to storage during refresh for wish:', wish.id);
+          imageUrl = await migrateBase64ToStorage(imageUrl, actualEventId, wish.id);
+        }
+        
+        return {
+          id: wish.id,
+          guest_id: wish.guest_id,
+          guest_name: wish.guest_name,
+          content: wish.wish_text,           // Database: wish_text → Template: content
+          image_url: imageUrl,               // Storage URL instead of base64
+          likes_count: wish.likes_count || 0,
+          is_approved: wish.is_approved,
+          created_at: wish.created_at
+          // Removed: replies_count (doesn't exist in DB)
+          // Removed: updated_at (doesn't exist in DB) 
+          // Removed: hasLiked (doesn't exist in DB)
+        };
       }));
       
       console.log('🔄 Transformed wishes for refresh:', transformedWishes?.length || 0);

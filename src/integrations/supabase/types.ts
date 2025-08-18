@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -420,15 +420,15 @@ export type Database = {
       get_event_custom_rsvp_fields: {
         Args: { event_uuid: string }
         Returns: {
-          id: string
-          field_name: string
+          display_order: number
           field_label: string
-          field_type: string
-          is_required: boolean
+          field_name: string
           field_options: Json
+          field_type: string
+          id: string
+          is_required: boolean
           placeholder_text: string
           validation_rules: Json
-          display_order: number
         }[]
       }
       get_guest_visible_events: {
@@ -437,8 +437,8 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
