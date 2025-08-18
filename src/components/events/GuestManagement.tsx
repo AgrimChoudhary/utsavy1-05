@@ -140,7 +140,7 @@ export const GuestManagement = ({ eventId }: GuestManagementProps) => {
         if (!guest.viewed || guest.accepted) return false;
         break;
       case 'accepted':
-        if (!guest.accepted) return false;
+        if (!guest.accepted || (guest.rsvp_data && Object.keys(guest.rsvp_data).length > 0)) return false;
         break;
       case 'pending':
         if (guest.viewed || guest.accepted) return false;
